@@ -2,6 +2,7 @@
 #define ROCKET_NET_ABSTRACT_PROTOCOL_H
 
 #include <memory>
+#include <string>
 
 
 namespace rocket {

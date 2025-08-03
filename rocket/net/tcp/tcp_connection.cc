@@ -171,7 +171,7 @@ void TcpConnection::onWrite() {
   }
   if (is_write_all) {
     m_fd_event->cancle(FdEvent::OUT_EVENT);
-    m_event_loop->addEpollEvent(m_fd_event);
+    m_event_loop->addEvent(m_fd_event);
   }
 
   if (m_connection_type == TcpConnectionByClient) {
@@ -198,7 +198,7 @@ void TcpConnection::clear() {
   m_fd_event->cancle(FdEvent::IN_EVENT);
   m_fd_event->cancle(FdEvent::OUT_EVENT);
 
-  m_event_loop->deleteEpollEvent(m_fd_event);
+  m_event_loop->deleteEvent(m_fd_event);
 
   m_state = Closed;
 
@@ -228,14 +228,14 @@ void TcpConnection::setConnectionType(TcpConnectionType type) {
 void TcpConnection::listenWrite() {
 
   m_fd_event->listen(FdEvent::OUT_EVENT, std::bind(&TcpConnection::onWrite, this));
-  m_event_loop->addEpollEvent(m_fd_event);
+  m_event_loop->addEvent(m_fd_event);
 }
 
 
 void TcpConnection::listenRead() {
 
   m_fd_event->listen(FdEvent::IN_EVENT, std::bind(&TcpConnection::onRead, this));
-  m_event_loop->addEpollEvent(m_fd_event);
+  m_event_loop->addEvent(m_fd_event);
 }
 
 

@@ -41,7 +41,7 @@ void TcpServer::init() {
   m_listen_fd_event = new FdEvent(m_acceptor->getListenFd());
   m_listen_fd_event->listen(FdEvent::IN_EVENT, std::bind(&TcpServer::onAccept, this));
   
-  m_main_event_loop->addEpollEvent(m_listen_fd_event);
+  m_main_event_loop->addEvent(m_listen_fd_event);
 
   m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true, std::bind(&TcpServer::ClearClientTimerFunc, this));
 	m_main_event_loop->addTimerEvent(m_clear_client_timer_event);

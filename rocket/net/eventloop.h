@@ -9,6 +9,9 @@
 #include "rocket/net/fd_event.h"
 #include "rocket/net/wakeup_fd_event.h"
 #include "rocket/net/timer.h"
+#include <asio/io_context.hpp>
+#include <asio/ip/tcp.hpp>
+
 
 namespace rocket {
 class EventLoop {
@@ -23,9 +26,9 @@ class EventLoop {
 
   void stop();
 
-  void addEpollEvent(FdEvent* event);
+  void addEvent(FdEvent* event);
 
-  void deleteEpollEvent(FdEvent* event);
+  void deleteEvent(FdEvent* event);
 
   bool isInLoopThread();
 
@@ -47,26 +50,17 @@ class EventLoop {
   void initTimer();
 
  private:
-  pid_t m_thread_id {0};
-
-  int m_epoll_fd {0};
-
-  int m_wakeup_fd {0};
+	asio::io_context m_io_context;
 
   WakeUpFdEvent* m_wakeup_fd_event {NULL};
 
   bool m_stop_flag {false};
 
+	std::vector<asio::ip::tcp::acceptor> m_acceptors;
+
   std::set<int> m_listen_fds;
 
-  std::queue<std::function<void()>> m_pending_tasks;
-  
-  Mutex m_mutex;
-
-  Timer* m_timer {NULL};
-
   bool m_is_looping {false};
-
 };
 
 }

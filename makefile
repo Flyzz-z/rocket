@@ -35,11 +35,11 @@ PATH_INSTALL_INC_RPC = $(PATH_INSTALL_INC_ROOT)/$(PATH_RPC)
 
 CXX := g++
 
-CXXFLAGS += -g -O0 -std=c++11 -Wall -Wno-deprecated -Wno-unused-but-set-variable
+CXXFLAGS += -g -O0 -std=c++20 -Wall -Wno-deprecated -Wno-unused-but-set-variable
 
 CXXFLAGS += -I./ -I$(PATH_ROCKET)	-I$(PATH_COMM) -I$(PATH_NET) -I$(PATH_TCP) -I$(PATH_CODER) -I$(PATH_RPC)
 
-LIBS += /usr/lib/libprotobuf.a	/usr/lib/libtinyxml.a
+LIBS += /usr/local/protobuf/lib/libprotobuf.a	/usr/lib/libtinyxml.a
 
 
 COMM_OBJ := $(patsubst $(PATH_COMM)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_COMM)/*.cc))
@@ -116,3 +116,6 @@ install:
 # uninstall
 uninstall:
 	rm -rf $(PATH_INSTALL_INC_ROOT)/rocket && rm -f $(PATH_INSTALL_LIB_ROOT)/librocket.a
+
+compile_commands.json:
+	bear -- make $(LIB_OUT) || (echo "Install bear first: sudo apt install bear" && exit 1)

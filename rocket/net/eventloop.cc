@@ -48,74 +48,60 @@ EventLoop::EventLoop() {
     ERRORLOG("failed to create event loop, this thread has created event loop");
     exit(0);
   }
-  m_thread_id = getThreadId();
+  auto thread_id = getThreadId();
 
-  m_epoll_fd = epoll_create(10);
-
-  if (m_epoll_fd == -1) {
-    ERRORLOG("failed to create event loop, epoll_create error, error info[%d]", errno);
-    exit(0);
-  }
-
-  initWakeUpFdEevent();
-  initTimer();
-
-  INFOLOG("succ create event loop in thread %d", m_thread_id);
+  INFOLOG("succ create event loop in thread %d", thread_id);
   t_current_eventloop = this;
 }
 
 EventLoop::~EventLoop() {
-  close(m_epoll_fd);
-  if (m_wakeup_fd_event) {
-    delete m_wakeup_fd_event;
-    m_wakeup_fd_event = NULL;
-  }
-  if (m_timer) {
-    delete m_timer;
-    m_timer = NULL;
-  }
+	m_io_context.stop();
 }
 
 
 void EventLoop::initTimer() {
-  m_timer = new Timer();
-  addEpollEvent(m_timer);
+  // m_timer = new Timer();
+  // addEvent(m_timer);
 }
 
 void EventLoop::addTimerEvent(TimerEvent::s_ptr event) {
-  m_timer->addTimerEvent(event);
+  // m_timer->addTimerEvent(event);
 }
 
 void EventLoop::initWakeUpFdEevent() {
-  m_wakeup_fd = eventfd(0, EFD_NONBLOCK);
-  if (m_wakeup_fd < 0) {
-    ERRORLOG("failed to create event loop, eventfd create error, error info[%d]", errno);
-    exit(0);
-  }
-  INFOLOG("wakeup fd = %d", m_wakeup_fd);
+  // m_wakeup_fd = eventfd(0, EFD_NONBLOCK);
+  // if (m_wakeup_fd < 0) {
+  //   ERRORLOG("failed to create event loop, eventfd create error, error info[%d]", errno);
+  //   exit(0);
+  // }
+  // INFOLOG("wakeup fd = %d", m_wakeup_fd);
 
-  m_wakeup_fd_event = new WakeUpFdEvent(m_wakeup_fd);
+  // m_wakeup_fd_event = new WakeUpFdEvent(m_wakeup_fd);
 
-  m_wakeup_fd_event->listen(FdEvent::IN_EVENT, [this]() {
-    char buf[8];
-    while(read(m_wakeup_fd, buf, 8) != -1 && errno != EAGAIN) {
-    }
-    DEBUGLOG("read full bytes from wakeup fd[%d]", m_wakeup_fd);
-  });
+  // m_wakeup_fd_event->listen(FdEvent::IN_EVENT, [this]() {
+  //   char buf[8];
+  //   while(read(m_wakeup_fd, buf, 8) != -1 && errno != EAGAIN) {
+  //   }
+  //   DEBUGLOG("read full bytes from wakeup fd[%d]", m_wakeup_fd);
+  // });
 
-  addEpollEvent(m_wakeup_fd_event);
+  // addEvent(m_wakeup_fd_event);
 
 }
 
 
+// 事件循环函数，负责不断循环以处理各种事件，如I/O事件和定时事件
 void EventLoop::loop() {
   m_is_looping = true;
   while(!m_stop_flag) {
+    // 加锁以保护任务队列
     ScopeMutex<Mutex> lock(m_mutex); 
     std::queue<std::function<void()>> tmp_tasks; 
+    // 交换任务队列，以在不持有锁的情况下处理任务
     m_pending_tasks.swap(tmp_tasks); 
     lock.unlock();
 
+    // 处理所有待处理的任务
     while (!tmp_tasks.empty()) {
       std::function<void()> cb = tmp_tasks.front();
       tmp_tasks.pop();
@@ -128,15 +114,18 @@ void EventLoop::loop() {
     // 1. 怎么判断一个定时任务需要执行？ （now() > TimerEvent.arrtive_time）
     // 2. arrtive_time 如何让 eventloop 监听
 
+    // 设置epoll等待时间
     int timeout = g_epoll_max_timeout; 
     epoll_event result_events[g_epoll_max_events];
-    // DEBUGLOG("now begin to epoll_wait");
+    // 开始epoll_wait等待事件发生
     int rt = epoll_wait(m_epoll_fd, result_events, g_epoll_max_events, timeout);
-    // DEBUGLOG("now end epoll_wait, rt = %d", rt);
+    // 结束epoll_wait
 
+    // 如果epoll_wait出错，记录错误日志
     if (rt < 0) {
       ERRORLOG("epoll_wait error, errno=%d, error=%s", errno, strerror(errno));
     } else {
+      // 处理所有发生的事件
       for (int i = 0; i < rt; ++i) {
         epoll_event trigger_event = result_events[i];
         FdEvent* fd_event = static_cast<FdEvent*>(trigger_event.data.ptr);
@@ -145,24 +134,19 @@ void EventLoop::loop() {
           continue;
         }
 
-        // int event = (int)(trigger_event.events); 
-        // DEBUGLOG("unkonow event = %d", event);
-
+        // 处理读事件
         if (trigger_event.events & EPOLLIN) { 
-
-          // DEBUGLOG("fd %d trigger EPOLLIN event", fd_event->getFd())
           addTask(fd_event->handler(FdEvent::IN_EVENT));
         }
+        // 处理写事件
         if (trigger_event.events & EPOLLOUT) { 
-          // DEBUGLOG("fd %d trigger EPOLLOUT event", fd_event->getFd())
           addTask(fd_event->handler(FdEvent::OUT_EVENT));
         }
 
-        // EPOLLHUP EPOLLERR
+        // 处理错误事件
         if (trigger_event.events & EPOLLERR) {
           DEBUGLOG("fd %d trigger EPOLLERROR event", fd_event->getFd())
-          // 删除出错的套接字
-          deleteEpollEvent(fd_event);
+          deleteEvent(fd_event);
           if (fd_event->handler(FdEvent::ERROR_EVENT) != nullptr) {
             DEBUGLOG("fd %d add error callback", fd_event->getFd())
             addTask(fd_event->handler(FdEvent::OUT_EVENT));
@@ -189,44 +173,44 @@ void EventLoop::dealWakeup() {
 
 }
 
-void EventLoop::addEpollEvent(FdEvent* event) {
-  if (isInLoopThread()) {
-    ADD_TO_EPOLL();
-  } else {
-    auto cb = [this, event]() {
-      ADD_TO_EPOLL();
-    };
-    addTask(cb, true);
-  }
+void EventLoop::addEvent(FdEvent* event) {
+  // if (isInLoopThread()) {
+  //   ADD_TO_EPOLL();
+  // } else {
+  //   auto cb = [this, event]() {
+  //     ADD_TO_EPOLL();
+  //   };
+  //   addTask(cb, true);
+  // }
 
 }
 
-void EventLoop::deleteEpollEvent(FdEvent* event) {
-  if (isInLoopThread()) {
-    DELETE_TO_EPOLL();
-  } else {
+void EventLoop::deleteEvent(FdEvent* event) {
+  // if (isInLoopThread()) {
+  //   DELETE_TO_EPOLL();
+  // } else {
 
-    auto cb = [this, event]() {
-      DELETE_TO_EPOLL();
-    };
-    addTask(cb, true);
-  }
+  //   auto cb = [this, event]() {
+  //     DELETE_TO_EPOLL();
+  //   };
+  //   addTask(cb, true);
+  // }
 
 }
 
 void EventLoop::addTask(std::function<void()> cb, bool is_wake_up /*=false*/) {
-  ScopeMutex<Mutex> lock(m_mutex);
-  m_pending_tasks.push(cb);
-  lock.unlock();
+  // ScopeMutex<Mutex> lock(m_mutex);
+  // m_pending_tasks.push(cb);
+  // lock.unlock();
 
-  if (is_wake_up) {
-    wakeup();
-  }
+  // if (is_wake_up) {
+  //   wakeup();
+  // }
 }
 
-bool EventLoop::isInLoopThread() {
-  return getThreadId() == m_thread_id;
-}
+// bool EventLoop::isInLoopThread() {
+//   return getThreadId() == m_thread_id;
+// }
 
 
 EventLoop* EventLoop::GetCurrentEventLoop() {
