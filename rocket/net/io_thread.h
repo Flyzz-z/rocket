@@ -1,8 +1,9 @@
 #ifndef ROCKET_NET_IO_THREAD_H
 #define ROCKET_NET_IO_THREAD_H
 
-#include <pthread.h>
-#include <semaphore.h>
+#include <asio/io_context.hpp>
+#include <thread>
+#include <semaphore>
 #include "rocket/net/eventloop.h"
 
 namespace rocket {
@@ -25,13 +26,13 @@ class IOThread {
 
  private:
   pid_t m_thread_id {-1};    // 线程号
-  pthread_t m_thread {0};   // 线程句柄
+  std::thread m_thread {0};   // 线程句柄
 
-  EventLoop* m_event_loop {NULL}; // 当前 io 线程的 loop 对象
+  asio::io_context m_io_context;
 
-  sem_t m_init_semaphore;
+  std::binary_semaphore m_init_semaphore;
 
-  sem_t m_start_semaphore;
+  std::binary_semaphore m_start_semaphore;
 
 };
 

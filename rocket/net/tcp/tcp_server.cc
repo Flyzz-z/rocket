@@ -3,23 +3,21 @@
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/common/log.h"
 #include "rocket/common/config.h"
-
+#include <asio/co_spawn.hpp>
+#include <asio/use_awaitable.hpp>
+#include <memory>
 
 
 namespace rocket {
 
-TcpServer::TcpServer(NetAddr::s_ptr local_addr) : m_local_addr(local_addr) {
+TcpServer::TcpServer(std::shared_ptr<tcp::endpoint> local_addr) : m_local_addr(local_addr),m_main_io_context(1) {
 
   init(); 
-
-  INFOLOG("rocket TcpServer listen sucess on [%s]", m_local_addr->toString().c_str());
+  INFOLOG("rocket TcpServer listen sucess on [%s:%u]", m_local_addr->address().to_string(),m_local_addr->port());
 }
 
 TcpServer::~TcpServer() {
-  if (m_main_event_loop) {
-    delete m_main_event_loop;
-    m_main_event_loop = NULL;
-  }
+  m_main_io_context.stop();
   if (m_io_thread_group) {
     delete m_io_thread_group;
     m_io_thread_group = NULL; 
@@ -33,21 +31,25 @@ TcpServer::~TcpServer() {
 
 void TcpServer::init() {
 
-  m_acceptor = std::make_shared<TcpAcceptor>(m_local_addr);
+  m_acceptor = std::make_shared<tcp::acceptor>(m_main_io_context,*m_local_addr);
 
-  m_main_event_loop = EventLoop::GetCurrentEventLoop();
+	//TODO: 创建io线程组,协程替换
   m_io_thread_group = new IOThreadGroup(Config::GetGlobalConfig()->m_io_threads);
-
-  m_listen_fd_event = new FdEvent(m_acceptor->getListenFd());
-  m_listen_fd_event->listen(FdEvent::IN_EVENT, std::bind(&TcpServer::onAccept, this));
-  
-  m_main_event_loop->addEvent(m_listen_fd_event);
-
-  m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true, std::bind(&TcpServer::ClearClientTimerFunc, this));
-	m_main_event_loop->addTimerEvent(m_clear_client_timer_event);
+  co_spawn(m_main_io_context,listener(),detached);
+	
+  // m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true, std::bind(&TcpServer::ClearClientTimerFunc, this));
+	// m_main_event_loop->addTimerEvent(m_clear_client_timer_event);
 
 }
 
+
+awaitable<void> TcpServer::listener() {
+	for(;;) {
+		auto socket = co_await m_acceptor->async_accept(use_awaitable);
+		std::shared_ptr<TcpConnection> connection = std::make_shared<TcpConnection>(socket,128);
+		// 然后呢
+	}
+}
 
 void TcpServer::onAccept() {
   auto re = m_acceptor->accept();
@@ -68,7 +70,7 @@ void TcpServer::onAccept() {
 
 void TcpServer::start() {
   m_io_thread_group->start();
-  m_main_event_loop->loop();
+  m_main_io_context.run();
 }
 
 

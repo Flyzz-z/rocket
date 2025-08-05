@@ -33,7 +33,7 @@ PATH_INSTALL_INC_RPC = $(PATH_INSTALL_INC_ROOT)/$(PATH_RPC)
 # PATH_PROTOBUF = /usr/include/google
 # PATH_TINYXML = /usr/include/tinyxml
 
-CXX := g++
+CXX := clang++
 
 CXXFLAGS += -g -O0 -std=c++20 -Wall -Wno-deprecated -Wno-unused-but-set-variable
 

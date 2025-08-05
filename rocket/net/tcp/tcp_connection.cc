@@ -1,3 +1,4 @@
+#include <memory>
 #include <unistd.h>
 #include "rocket/common/log.h"
 #include "rocket/net/fd_event_group.h"
@@ -7,15 +8,15 @@
 
 namespace rocket {
 
-TcpConnection::TcpConnection(EventLoop* event_loop, int fd, int buffer_size, NetAddr::s_ptr peer_addr, NetAddr::s_ptr local_addr, TcpConnectionType type /*= TcpConnectionByServer*/)
-    : m_event_loop(event_loop), m_local_addr(local_addr), m_peer_addr(peer_addr), m_state(NotConnected), m_fd(fd), m_connection_type(type) {
-    
+TcpConnection::TcpConnection(tcp::socket socket, int buffer_size, TcpConnectionType type /*= TcpConnectionByServer*/)
+    : m_socket(std::move(socket)), m_connection_type(type) {
+  
+	m_local_addr = std::make_shared<tcp::endpoint>(socket.local_endpoint());
+	m_peer_addr = std::make_shared<tcp::endpoint>(socket.remote_endpoint());
   m_in_buffer = std::make_shared<TcpBuffer>(buffer_size);
   m_out_buffer = std::make_shared<TcpBuffer>(buffer_size);
 
-  m_fd_event = FdEventGroup::GetFdEventGroup()->getFdEvent(fd);
-  m_fd_event->setNonBlock();
-
+	
   m_coder = new TinyPBCoder();
 
   if (m_connection_type == TcpConnectionByServer) {

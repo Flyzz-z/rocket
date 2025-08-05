@@ -24,6 +24,7 @@ class FdEvent {
 
   std::function<void()> handler(TriggerEvent event_type);
 
+	// 换成协程的话，应该是一个
   void listen(TriggerEvent event_type, std::function<void()> callback, std::function<void()> error_callback = nullptr);
 
   // 取消监听

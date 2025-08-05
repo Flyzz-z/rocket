@@ -1,6 +1,7 @@
 #ifndef ROCKET_NET_TCP_TCP_CONNECTION_H
 #define ROCKET_NET_TCP_TCP_CONNECTION_H
 
+#include <asio/ip/tcp.hpp>
 #include <memory>
 #include <map>
 #include <queue>
@@ -11,6 +12,8 @@
 #include "rocket/net/rpc/rpc_dispatcher.h"
 
 namespace rocket {
+
+using asio::ip::tcp;
 
 enum TcpState {
   NotConnected = 1,
@@ -31,7 +34,7 @@ class TcpConnection {
 
 
  public:
-  TcpConnection(EventLoop* event_loop, int fd, int buffer_size, NetAddr::s_ptr peer_addr, NetAddr::s_ptr local_addr, TcpConnectionType type = TcpConnectionByServer);
+  TcpConnection(tcp::socket socket, int buffer_size, TcpConnectionType type = TcpConnectionByServer);
 
   ~TcpConnection();
 
@@ -72,10 +75,10 @@ class TcpConnection {
 
  private:
 
-  EventLoop* m_event_loop {NULL};   // 代表持有该连接的 IO 线程
+  tcp::socket m_socket;
 
-  NetAddr::s_ptr m_local_addr;
-  NetAddr::s_ptr m_peer_addr;
+  std::shared_ptr<tcp::endpoint> m_local_addr;
+  std::shared_ptr<tcp::endpoint> m_peer_addr;
 
   TcpBuffer::s_ptr m_in_buffer;   // 接收缓冲区
   TcpBuffer::s_ptr m_out_buffer;  // 发送缓冲区

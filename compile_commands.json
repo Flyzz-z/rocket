@@ -1,0 +1,77 @@
+[
+  {
+    "arguments": [
+      "/usr/local/clang18/bin/clang++",
+      "-g",
+      "-O0",
+      "-std=c++20",
+      "-Wall",
+      "-Wno-deprecated",
+      "-Wno-unused-but-set-variable",
+      "-I./",
+      "-Irocket",
+      "-Irocket/common",
+      "-Irocket/net",
+      "-Irocket/net/tcp",
+      "-Irocket/net/coder",
+      "-Irocket/net/rpc",
+      "-c",
+      "-o",
+      "obj/timer.o",
+      "rocket/net/timer.cc"
+    ],
+    "directory": "/home/work/rocket",
+    "file": "/home/work/rocket/rocket/net/timer.cc",
+    "output": "/home/work/rocket/obj/timer.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/clang18/bin/clang++",
+      "-g",
+      "-O0",
+      "-std=c++20",
+      "-Wall",
+      "-Wno-deprecated",
+      "-Wno-unused-but-set-variable",
+      "-I./",
+      "-Irocket",
+      "-Irocket/common",
+      "-Irocket/net",
+      "-Irocket/net/tcp",
+      "-Irocket/net/coder",
+      "-Irocket/net/rpc",
+      "-c",
+      "-o",
+      "obj/eventloop.o",
+      "rocket/net/eventloop.cc"
+    ],
+    "directory": "/home/work/rocket",
+    "file": "/home/work/rocket/rocket/net/eventloop.cc",
+    "output": "/home/work/rocket/obj/eventloop.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/clang18/bin/clang++",
+      "-g",
+      "-O0",
+      "-std=c++20",
+      "-Wall",
+      "-Wno-deprecated",
+      "-Wno-unused-but-set-variable",
+      "-I./",
+      "-Irocket",
+      "-Irocket/common",
+      "-Irocket/net",
+      "-Irocket/net/tcp",
+      "-Irocket/net/coder",
+      "-Irocket/net/rpc",
+      "-c",
+      "-o",
+      "obj/timer_event.o",
+      "rocket/net/timer_event.cc"
+    ],
+    "directory": "/home/work/rocket",
+    "file": "/home/work/rocket/rocket/net/timer_event.cc",
+    "output": "/home/work/rocket/obj/timer_event.o"
+  }
+]
