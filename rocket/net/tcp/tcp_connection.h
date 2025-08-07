@@ -1,7 +1,11 @@
 #ifndef ROCKET_NET_TCP_TCP_CONNECTION_H
 #define ROCKET_NET_TCP_TCP_CONNECTION_H
 
+#include <asio/awaitable.hpp>
+#include <asio/buffer.hpp>
+#include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
+#include <asio/use_awaitable.hpp>
 #include <memory>
 #include <map>
 #include <queue>
@@ -14,6 +18,9 @@
 namespace rocket {
 
 using asio::ip::tcp;
+using asio::awaitable;
+using asio::use_awaitable;
+using TcpDataBuffer = asio::dynamic_vector_buffer<char, std::allocator<char>>;
 
 enum TcpState {
   NotConnected = 1,
@@ -34,15 +41,15 @@ class TcpConnection {
 
 
  public:
-  TcpConnection(tcp::socket socket, int buffer_size, TcpConnectionType type = TcpConnectionByServer);
+  TcpConnection(asio::io_context *io_context,tcp::socket socket, int buffer_size, TcpConnectionType type = TcpConnectionByServer);
 
   ~TcpConnection();
 
-  void onRead();
+  awaitable<void> reader();
 
-  void excute();
+  void execute();
 
-  void onWrite();
+  awaitable<void> writer();
 
   void setState(const TcpState state);
 
@@ -67,21 +74,26 @@ class TcpConnection {
 
   void pushReadMessage(const std::string& msg_id, std::function<void(AbstractProtocol::s_ptr)> done);
 
-  NetAddr::s_ptr getLocalAddr();
+  tcp::endpoint getLocalAddr();
 
-  NetAddr::s_ptr getPeerAddr();
+  tcp::endpoint getPeerAddr();
 
   void reply(std::vector<AbstractProtocol::s_ptr>& replay_messages);
 
  private:
 
+ 	asio::io_context *m_io_context;
+
   tcp::socket m_socket;
 
-  std::shared_ptr<tcp::endpoint> m_local_addr;
-  std::shared_ptr<tcp::endpoint> m_peer_addr;
+  tcp::endpoint m_local_addr;
+  tcp::endpoint m_peer_addr;
 
-  TcpBuffer::s_ptr m_in_buffer;   // 接收缓冲区
-  TcpBuffer::s_ptr m_out_buffer;  // 发送缓冲区
+  TcpDataBuffer m_in_buffer;
+  TcpDataBuffer m_out_buffer;
+  int m_buffer_size;
+	std::vector<char> m_in_vector;
+	std::vector<char> m_out_vector; 
 
   FdEvent* m_fd_event {NULL};
 

@@ -1,4 +1,5 @@
 #include "rocket/net/tcp/tcp_server.h"
+#include "io_thread_group.h"
 #include "rocket/net/eventloop.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/common/log.h"
@@ -10,18 +11,14 @@
 
 namespace rocket {
 
-TcpServer::TcpServer(std::shared_ptr<tcp::endpoint> local_addr) : m_local_addr(local_addr),m_main_io_context(1) {
+TcpServer::TcpServer(tcp::endpoint local_addr) : m_local_addr(local_addr),m_main_io_context(1) {
 
   init(); 
-  INFOLOG("rocket TcpServer listen sucess on [%s:%u]", m_local_addr->address().to_string(),m_local_addr->port());
+  INFOLOG("rocket TcpServer listen sucess on [%s:%u]", m_local_addr.address().to_string(),m_local_addr.port());
 }
 
 TcpServer::~TcpServer() {
   m_main_io_context.stop();
-  if (m_io_thread_group) {
-    delete m_io_thread_group;
-    m_io_thread_group = NULL; 
-  }
   if (m_listen_fd_event) {
     delete m_listen_fd_event;
     m_listen_fd_event = NULL;
@@ -31,10 +28,9 @@ TcpServer::~TcpServer() {
 
 void TcpServer::init() {
 
-  m_acceptor = std::make_shared<tcp::acceptor>(m_main_io_context,*m_local_addr);
+  m_acceptor = std::make_unique<tcp::acceptor>(m_main_io_context,m_local_addr);
 
-	//TODO: 创建io线程组,协程替换
-  m_io_thread_group = new IOThreadGroup(Config::GetGlobalConfig()->m_io_threads);
+  m_io_thread_group =	std::make_unique<IOThreadGroup>(Config::GetGlobalConfig()->m_io_threads);
   co_spawn(m_main_io_context,listener(),detached);
 	
   // m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true, std::bind(&TcpServer::ClearClientTimerFunc, this));
@@ -42,30 +38,19 @@ void TcpServer::init() {
 
 }
 
-
+/**
+* listener()协程，不断 accept socket，创建新会话
+* 需要在会话中提供读和写协程
+* 在IO线程中使用上下文调用协程
+*/
 awaitable<void> TcpServer::listener() {
 	for(;;) {
 		auto socket = co_await m_acceptor->async_accept(use_awaitable);
 		std::shared_ptr<TcpConnection> connection = std::make_shared<TcpConnection>(socket,128);
-		// 然后呢
+		connection->setState(Connected);
+		m_client.insert(connection);
+		INFOLOG("TcpServer succ get client, address=%d", socket.remote_endpoint().address());
 	}
-}
-
-void TcpServer::onAccept() {
-  auto re = m_acceptor->accept();
-  int client_fd = re.first;
-  NetAddr::s_ptr peer_addr = re.second;
-
-  m_client_counts++;
-  
-  // 把 cleintfd 添加到任意 IO 线程里面
-  IOThread* io_thread = m_io_thread_group->getIOThread();
-  TcpConnection::s_ptr connetion = std::make_shared<TcpConnection>(io_thread->getEventLoop(), client_fd, 128, peer_addr, m_local_addr);
-  connetion->setState(Connected);
-
-  m_client.insert(connetion);
-
-  INFOLOG("TcpServer succ get client, fd=%d", client_fd);
 }
 
 void TcpServer::start() {

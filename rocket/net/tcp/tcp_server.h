@@ -24,7 +24,7 @@ using asio::use_awaitable;
 
 class TcpServer {
  public:
-  TcpServer(std::shared_ptr<tcp::endpoint> local_addr);
+  TcpServer(tcp::endpoint local_addr);
 
   ~TcpServer();
 
@@ -42,13 +42,13 @@ class TcpServer {
 
 
  private:
-	std::shared_ptr<tcp::acceptor> m_acceptor;
+	std::unique_ptr<tcp::acceptor> m_acceptor;
 
-	std::shared_ptr<tcp::endpoint> m_local_addr;
+	tcp::endpoint m_local_addr;
 	
   asio::io_context m_main_io_context;
   
-  IOThreadGroup* m_io_thread_group {NULL};   // subReactor 组
+  std::unique_ptr<IOThreadGroup> m_io_thread_group;   // subReactor 组
 
   FdEvent* m_listen_fd_event;
 

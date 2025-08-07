@@ -8,6 +8,9 @@
 
 namespace rocket {
 
+/**
+* 处理IO的线程，连接上下文提供的读写协程在IO线程中处理
+*/
 class IOThread {
  public:
   IOThread();

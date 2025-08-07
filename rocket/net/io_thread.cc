@@ -27,7 +27,6 @@ IOThread::~IOThread() {
 /*
 * IOThread::Main
 * 在新线程中执行io_context.run()
-*
 */
 void* IOThread::Main(void* arg) {
   IOThread* io_thread = static_cast<IOThread*> (arg);
@@ -49,9 +48,6 @@ void* IOThread::Main(void* arg) {
 }
 
 
-EventLoop* IOThread::getEventLoop() {
-  return m_event_loop;
-}
 
 void IOThread::start() {
   DEBUGLOG("Now invoke IOThread %d", m_thread_id);
