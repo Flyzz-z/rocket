@@ -14,11 +14,10 @@ class TinyPBCoder : public AbstractCoder {
   ~TinyPBCoder() {}
 
   // 将 message 对象转化为字节流，写入到 buffer
-  void encode(std::vector<AbstractProtocol::s_ptr>& messages, TcpBuffer::s_ptr out_buffer);
+  void encode(std::vector<AbstractProtocol::s_ptr>& messages, TcpBuffer& out_buffer);
 
   // 将 buffer 里面的字节流转换为 message 对象
-  void decode(std::vector<AbstractProtocol::s_ptr>& out_messages, TcpBuffer::s_ptr buffer);
-
+  void decode(std::vector<AbstractProtocol::s_ptr>& out_messages, TcpBuffer& buffer);
 
  private:
   const char* encodeTinyPB(std::shared_ptr<TinyPBProtocol> message, int& len);

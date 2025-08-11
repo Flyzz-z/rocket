@@ -1,113 +1,41 @@
-#include <memory>
-#include <string.h>
-#include "rocket/common/log.h"
-#include "rocket/net/tcp/tcp_buffer.h"
+#include "net/tcp/tcp_buffer.h"
+#include <asio/buffer.hpp>
+#include <cstring>
 
 namespace rocket {
 
+TcpBuffer::TcpBuffer(int size)
+    : m_buffer(asio::dynamic_buffer(m_buffer_vector, size)), m_size(size) {}
+int TcpBuffer::readAble() { return m_buffer.size(); }
 
-
-TcpBuffer::TcpBuffer(int size) : m_size(size) {
-  m_buffer.resize(size);
-}
-
-TcpBuffer::~TcpBuffer() {
-
-}
-
-// 返回可读字节数
-int TcpBuffer::readAble() {
-  return m_write_index - m_read_index;
-}
-
-// 返回可写的字节数
-int TcpBuffer::writeAble() {
-  return m_buffer.size() - m_write_index;
-}
-
-int TcpBuffer::readIndex() {
-  return m_read_index;
-}
-
-int TcpBuffer::writeIndex() {
-  return m_write_index;
-}
-
-void TcpBuffer::writeToBuffer(const char* buf, int size) {
-  if (size > writeAble()) {
-    // 调整 buffer 的大小，扩容
-    int new_size = (int)(1.5 * (m_write_index + size));
-    resizeBuffer(new_size);
-  }
-  memcpy(&m_buffer[m_write_index], buf, size);
-  m_write_index += size; 
-}
-
-
-void TcpBuffer::readFromBuffer(std::vector<char>& re, int size) {
-  if (readAble() == 0) {
+void TcpBuffer::readFromBuffer(std::vector<char> &re, std::size_t size) {
+  if (size <= 0)
     return;
-  }
 
-  int read_size = readAble() > size ? size : readAble();
-
-  std::vector<char> tmp(read_size);
-  memcpy(&tmp[0], &m_buffer[m_read_index], read_size);
-
-  re.swap(tmp); 
-  m_read_index += read_size;
-
-  adjustBuffer();
+  auto read_size = std::min(size, m_buffer.size());
+  const char *data_ptr = asio::buffer_cast<const char *>(m_buffer.data());
+  std::memcpy(re.data(), data_ptr, read_size);
+  m_buffer.consume(read_size);
 }
 
-
-void TcpBuffer::resizeBuffer(int new_size) {
-  std::vector<char> tmp(new_size);
-  int count = std::min(new_size, readAble());
-  
-  memcpy(&tmp[0], &m_buffer[m_read_index], count);
-  m_buffer.swap(tmp);
-
-  m_read_index = 0;
-  m_write_index = m_read_index + count;
-
-}
-
-
-void TcpBuffer::adjustBuffer() {
-  if (m_read_index < int(m_buffer.size() / 3)) {
+void TcpBuffer::writeToBuffer(const char *buf, std::size_t size) {
+  if (size <= 0)
     return;
-  }
-  std::vector<char> buffer(m_buffer.size());
-  int count = readAble();
-
-  memcpy(&buffer[0], &m_buffer[m_read_index], count);
-  m_buffer.swap(buffer);
-  m_read_index = 0;
-  m_write_index = m_read_index + count;
-
-  buffer.clear();
+  m_buffer.prepare(size);
+  char *data_ptr = asio::buffer_cast<char *>(m_buffer.data());
+  std::memcpy(data_ptr, buf, size);
+  m_buffer.commit(size);
 }
 
-void TcpBuffer::moveReadIndex(int size) {
-  size_t j = m_read_index + size;
-  if (j >= m_buffer.size()) {
-    ERRORLOG("moveReadIndex error, invalid size %d, old_read_index %d, buffer size %d", size, m_read_index, m_buffer.size());
-    return;
-  }
-  m_read_index = j;
-  adjustBuffer();
+TcpDataBuffer& TcpBuffer::getBuffer() { return m_buffer; }
+
+std::vector<char> TcpBuffer::getBufferVecCopy() {
+  std::vector<char> re(m_buffer.size());
+  const char *data_ptr = asio::buffer_cast<const char *>(m_buffer.data());
+  re.assign(data_ptr, data_ptr + m_buffer.size());
+  return re;
 }
 
-void TcpBuffer::moveWriteIndex(int size) {
-  size_t j = m_write_index + size;
-  if (j >= m_buffer.size()) {
-    ERRORLOG("moveWriteIndex error, invalid size %d, old_read_index %d, buffer size %d", size, m_read_index, m_buffer.size());
-    return;
-  }
-  m_write_index = j;
-  adjustBuffer();
+void TcpBuffer::consume(std::size_t size) { m_buffer.consume(size); }
 
-}
-
-}
+} // namespace rocket

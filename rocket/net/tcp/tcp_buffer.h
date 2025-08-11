@@ -1,55 +1,38 @@
 #ifndef ROCKET_NET_TCP_TCP_BUFFER_H
-#define ROCKET_NET_TCP_TCP_BUFFER_H
+#define ROCKET_NET_TCP_TCP_BUFFER_H 
 
+
+#include <asio/buffer.hpp>
+#include <cstddef>
 #include <vector>
-#include <memory>
-
 namespace rocket {
+
+using TcpDataBuffer = asio::dynamic_vector_buffer<char, std::allocator<char>>;
 
 class TcpBuffer {
 
- public:
+public:
+	TcpBuffer(int size);
 
-  typedef std::shared_ptr<TcpBuffer> s_ptr;
+	int readAble();
 
-  TcpBuffer(int size);
+	void writeToBuffer(const char* buf, std::size_t size);
 
-  ~TcpBuffer();
+	void readFromBuffer(std::vector<char> &re, std::size_t size);
 
-  // 返回可读字节数
-  int readAble();
+	std::vector<char> getBufferVecCopy();
 
-  // 返回可写的字节数
-  int writeAble();
+	TcpDataBuffer& getBuffer();
 
-  int readIndex();
-
-  int writeIndex();
-
-  void writeToBuffer(const char* buf, int size);
-
-  void readFromBuffer(std::vector<char>& re, int size);
-
-  void resizeBuffer(int new_size);
-
-  void adjustBuffer();
-
-  void moveReadIndex(int size);
-
-  void moveWriteIndex(int size);
-
- private:
-  int m_read_index {0};
-  int m_write_index {0};
-  int m_size {0};
-
- public:
-  std::vector<char> m_buffer;
-
+	void consume(std::size_t size);
+private: 
+	std::vector<char> m_buffer_vector;
+	TcpDataBuffer m_buffer;
+	std::size_t m_size;
 };
 
 
-}
 
+}
 
 #endif

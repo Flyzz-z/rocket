@@ -1,3 +1,4 @@
+#include <asio/buffer.hpp>
 #include <vector>
 #include <string.h>
 #include <arpa/inet.h>
@@ -9,13 +10,13 @@
 namespace rocket {
 
 // 将 message 对象转化为字节流，写入到 buffer
-void TinyPBCoder::encode(std::vector<AbstractProtocol::s_ptr>& messages, TcpBuffer::s_ptr out_buffer) {
+void TinyPBCoder::encode(std::vector<AbstractProtocol::s_ptr>& messages, TcpBuffer& out_buffer) {
   for (auto &i : messages) {
     std::shared_ptr<TinyPBProtocol> msg = std::dynamic_pointer_cast<TinyPBProtocol>(i);
     int len = 0;
     const char* buf = encodeTinyPB(msg, len);
     if (buf != NULL && len != 0) {
-      out_buffer->writeToBuffer(buf, len);
+      out_buffer.writeToBuffer(buf, len);
     }
     if (buf) {
       free((void*)buf);
@@ -26,26 +27,26 @@ void TinyPBCoder::encode(std::vector<AbstractProtocol::s_ptr>& messages, TcpBuff
 }
 
 // 将 buffer 里面的字节流转换为 message 对象
-void TinyPBCoder::decode(std::vector<AbstractProtocol::s_ptr>& out_messages, TcpBuffer::s_ptr buffer) {
+void TinyPBCoder::decode(std::vector<AbstractProtocol::s_ptr>& out_messages, TcpBuffer& buffer) {
   while(1) {
     // 遍历 buffer，找到 PB_START，找到之后，解析出整包的长度。然后得到结束符的位置，判断是否为 PB_END
-    std::vector<char> tmp = buffer->m_buffer;
-    int start_index = buffer->readIndex();
+    std::vector<char> tmp = buffer.getBufferVecCopy();
+    int start_index = 0;
     int end_index = -1;
 
     int pk_len = 0;
     bool parse_success = false;
     int i = 0;
-    for (i = start_index; i < buffer->writeIndex(); ++i) {
+    for (i = start_index; i < tmp.size(); ++i) {
       if (tmp[i] == TinyPBProtocol::PB_START) {
         // 读下去四个字节。由于是网络字节序，需要转为主机字节序  
-        if (i + 1 < buffer->writeIndex()) {
+        if (i + 1 < tmp.size()) {
           pk_len = getInt32FromNetByte(&tmp[i+1]);
           DEBUGLOG("get pk_len = %d", pk_len);
 
           // 结束符的索引
           int j = i + pk_len - 1;
-          if (j >= buffer->writeIndex()) {
+          if (j >= tmp.size()) {
             continue;
           }
           if (tmp[j] == TinyPBProtocol::PB_END) {
@@ -59,13 +60,13 @@ void TinyPBCoder::decode(std::vector<AbstractProtocol::s_ptr>& out_messages, Tcp
       }
     }
 
-    if (i >= buffer->writeIndex()) {
+    if (i >= tmp.size()) {
       DEBUGLOG("decode end, read all buffer data");
       return;
     }
 
     if (parse_success) {
-      buffer->moveReadIndex(end_index - start_index + 1);
+      buffer.consume(end_index - start_index + 1);
       std::shared_ptr<TinyPBProtocol> message = std::make_shared<TinyPBProtocol>(); 
       message->m_pk_len = pk_len;
 
