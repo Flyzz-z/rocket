@@ -27,7 +27,7 @@ class StringCoder : public AbstractCoder {
   // 将 buffer 里面的字节流转换为 message 对象
   void decode(std::vector<AbstractProtocol::s_ptr>& out_messages, TcpBuffer& buffer) {
     std::vector<char> re;
-    buffer.readFromBuffer(re, buffer.readAble());
+    buffer.readFromBuffer(re, buffer.dataSize());
     std::string info;
     for (size_t i = 0; i < re.size(); ++i) {
       info += re[i];

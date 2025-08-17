@@ -14,7 +14,7 @@ class TcpBuffer {
 public:
 	TcpBuffer(int size);
 
-	int readAble();
+	std::size_t dataSize();
 
 	void writeToBuffer(const char* buf, std::size_t size);
 
@@ -25,6 +25,8 @@ public:
 	TcpDataBuffer& getBuffer();
 
 	void consume(std::size_t size);
+
+	void commit(std::size_t size);
 private: 
 	std::vector<char> m_buffer_vector;
 	TcpDataBuffer m_buffer;

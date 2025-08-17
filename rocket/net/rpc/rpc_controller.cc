@@ -10,8 +10,6 @@ void RpcController::Reset() {
   m_is_failed = false;
   m_is_cancled = false;
   m_is_finished = false;
-  m_local_addr = nullptr;
-  m_peer_addr = nullptr;
   m_timeout = 1000;   // ms
 }
 
@@ -65,19 +63,19 @@ std::string RpcController::GetMsgId() {
   return m_msg_id;
 }
 
-void RpcController::SetLocalAddr(NetAddr::s_ptr addr) {
+void RpcController::SetLocalAddr(tcp::endpoint addr) {
   m_local_addr = addr;
 }
 
-void RpcController::SetPeerAddr(NetAddr::s_ptr addr) {
+void RpcController::SetPeerAddr(tcp::endpoint addr) {
   m_peer_addr = addr;
 }
 
-NetAddr::s_ptr RpcController::GetLocalAddr() {
+tcp::endpoint RpcController::GetLocalAddr() {
   return m_local_addr;
 }
 
-NetAddr::s_ptr RpcController::GetPeerAddr() {
+tcp::endpoint RpcController::GetPeerAddr() {
   return m_peer_addr;
 }
 

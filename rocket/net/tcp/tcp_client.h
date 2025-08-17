@@ -1,27 +1,29 @@
 #ifndef ROCKET_NET_TCP_TCP_CLIENT_H
 #define ROCKET_NET_TCP_TCP_CLIENT_H
 
+#include <asio/awaitable.hpp>
+#include <asio/io_context.hpp>
 #include <memory>
-#include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/eventloop.h"
+#include "rocket/net/io_thread_singleton.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/net/coder/abstract_protocol.h"
-#include "rocket/net/timer_event.h"
 
 
 namespace rocket {
+
+using asio::ip::tcp;
 
 class TcpClient {
  public:
   typedef std::shared_ptr<TcpClient> s_ptr;
 
-  TcpClient(NetAddr::s_ptr peer_addr);
+  TcpClient(tcp::endpoint peer_addr);
 
   ~TcpClient();
 
   // 异步的进行 conenct
   // 如果 connect 完成，done 会被执行
-  void connect(std::function<void()> done);
+  asio::awaitable<void> connect();
 
   // 异步的发送 message
   // 如果发送 message 成功，会调用 done 函数， 函数的入参就是 message 对象 
@@ -38,23 +40,19 @@ class TcpClient {
 
   std::string getConnectErrorInfo();
 
-  NetAddr::s_ptr getPeerAddr();
+  tcp::endpoint getPeerAddr();
 
-  NetAddr::s_ptr getLocalAddr();
+  tcp::endpoint getLocalAddr();
 
-  void initLocalAddr();
-
-  void addTimerEvent(TimerEvent::s_ptr timer_event);
+  //void addTimerEvent(TimerEvent::s_ptr timer_event);
 
 
  private:
-  NetAddr::s_ptr m_peer_addr;
-  NetAddr::s_ptr m_local_addr;
+  tcp::endpoint m_peer_addr;
+  tcp::endpoint m_local_addr;
 
-  EventLoop* m_event_loop {NULL};
-
-  int m_fd {-1};
-  FdEvent* m_fd_event {NULL};
+	IOThreadSingleton *m_io_thread_singleton;
+	asio::io_context *m_io_context;
 
   TcpConnection::s_ptr m_connection;
 

@@ -9,11 +9,11 @@
 #include "rocket/common/msg_id_util.h"
 #include "rocket/common/error_code.h"
 #include "rocket/common/run_time.h"
-#include "rocket/net/timer_event.h"
 
+// TODO 完善rpc_channel 
 namespace rocket {
 
-RpcChannel::RpcChannel(NetAddr::s_ptr peer_addr) : m_peer_addr(peer_addr) {
+RpcChannel::RpcChannel(tcp::endpoint peer_addr) : m_peer_addr(peer_addr) {
   INFOLOG("RpcChannel");
 }
 
@@ -51,7 +51,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     return;
   }
 
-  if (m_peer_addr == nullptr) {
+  if (m_peer_addr.size() == 0) {
     ERRORLOG("failed get peer addr");
     my_controller->SetError(ERROR_RPC_PEER_ADDR, "peer addr nullptr");
     callBack();
@@ -123,7 +123,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
       my_controller->SetError(getTcpClient()->getConnectErrorCode(), getTcpClient()->getConnectErrorInfo());
       ERRORLOG("%s | connect error, error coode[%d], error info[%s], peer addr[%s]", 
         req_protocol->m_msg_id.c_str(), my_controller->GetErrorCode(), 
-        my_controller->GetErrorInfo().c_str(), getTcpClient()->getPeerAddr()->toString().c_str());
+        my_controller->GetErrorInfo().c_str(), getTcpClient()->getPeerAddr().address().to_string().c_str());
 
       callBack();
 
@@ -132,19 +132,21 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
 
     INFOLOG("%s | connect success, peer addr[%s], local addr[%s]",
       req_protocol->m_msg_id.c_str(), 
-      getTcpClient()->getPeerAddr()->toString().c_str(), 
-      getTcpClient()->getLocalAddr()->toString().c_str()); 
+      getTcpClient()->getPeerAddr().address().to_string().c_str(), 
+
+
+      getTcpClient()->getLocalAddr().address().to_string().c_str()); 
 
     getTcpClient()->writeMessage(req_protocol, [req_protocol, this, my_controller](AbstractProtocol::s_ptr) mutable {
       INFOLOG("%s | send rpc request success. call method name[%s], peer addr[%s], local addr[%s]", 
         req_protocol->m_msg_id.c_str(), req_protocol->m_method_name.c_str(),
-        getTcpClient()->getPeerAddr()->toString().c_str(), getTcpClient()->getLocalAddr()->toString().c_str());
+        getTcpClient()->getPeerAddr().address().to_string().c_str(), getTcpClient()->getLocalAddr().address().to_string().c_str());
 
         getTcpClient()->readMessage(req_protocol->m_msg_id, [this, my_controller](AbstractProtocol::s_ptr msg) mutable {
         std::shared_ptr<rocket::TinyPBProtocol> rsp_protocol = std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg);
         INFOLOG("%s | success get rpc response, call method name[%s], peer addr[%s], local addr[%s]", 
           rsp_protocol->m_msg_id.c_str(), rsp_protocol->m_method_name.c_str(),
-          getTcpClient()->getPeerAddr()->toString().c_str(), getTcpClient()->getLocalAddr()->toString().c_str());
+          getTcpClient()->getPeerAddr().address().to_string().c_str(), getTcpClient()->getLocalAddr().address().to_string().c_str());
 
         if (!(getResponse()->ParseFromString(rsp_protocol->m_pb_data))){
           ERRORLOG("%s | serialize error", rsp_protocol->m_msg_id.c_str());
@@ -165,7 +167,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
 
         INFOLOG("%s | call rpc success, call method name[%s], peer addr[%s], local addr[%s]",
           rsp_protocol->m_msg_id.c_str(), rsp_protocol->m_method_name.c_str(),
-          getTcpClient()->getPeerAddr()->toString().c_str(), getTcpClient()->getLocalAddr()->toString().c_str())
+          getTcpClient()->getPeerAddr().address().to_string().c_str(), getTcpClient()->getLocalAddr().address().to_string().c_str())
 
         callBack();
       
@@ -211,7 +213,7 @@ TcpClient* RpcChannel::getTcpClient() {
 }
 
 
-NetAddr::s_ptr RpcChannel::FindAddr(const std::string& str) {
+tcp::endpoint RpcChannel::FindAddr(const std::string& str) {
   if (IPNetAddr::CheckValid(str)) {
     return std::make_shared<IPNetAddr>(str);
   } else {

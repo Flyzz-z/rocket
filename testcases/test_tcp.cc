@@ -5,9 +5,9 @@
 
 void test_tcp_server() {
 
-  rocket::IPNetAddr::s_ptr addr = std::make_shared<rocket::IPNetAddr>("127.0.0.1", 12346);
+  auto addr = asio::ip::tcp::endpoint(asio::ip::address_v4::any(), 8080);
 
-  DEBUGLOG("create addr %s", addr->toString().c_str());
+  DEBUGLOG("create addr %s", addr.address().to_string().c_str());
 
   rocket::TcpServer tcp_server(addr);
 
@@ -17,10 +17,10 @@ void test_tcp_server() {
 
 int main() {
 
-  // rocket::Config::SetGlobalConfig("../conf/rocket.xml");
+  rocket::Config::SetGlobalConfig("../conf/rocket.xml");
   // rocket::Logger::InitGlobalLogger();
 
-  rocket::Config::SetGlobalConfig(NULL);
+  //rocket::Config::SetGlobalConfig(NULL);
 
   rocket::Logger::InitGlobalLogger(0);
 

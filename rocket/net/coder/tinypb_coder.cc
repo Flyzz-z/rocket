@@ -31,6 +31,7 @@ void TinyPBCoder::decode(std::vector<AbstractProtocol::s_ptr>& out_messages, Tcp
   while(1) {
     // 遍历 buffer，找到 PB_START，找到之后，解析出整包的长度。然后得到结束符的位置，判断是否为 PB_END
     std::vector<char> tmp = buffer.getBufferVecCopy();
+		DEBUGLOG("buffer size = %d", tmp.size());
     int start_index = 0;
     int end_index = -1;
 

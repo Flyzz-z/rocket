@@ -1,3 +1,4 @@
+#include <asio/ip/address.hpp>
 #include <assert.h>
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -66,9 +67,10 @@ int main(int argc, char* argv[]) {
   std::shared_ptr<OrderImpl> service = std::make_shared<OrderImpl>();
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);
 
-  rocket::IPNetAddr::s_ptr addr = std::make_shared<rocket::IPNetAddr>("127.0.0.1", rocket::Config::GetGlobalConfig()->m_port);
+  asio::ip::address addr = asio::ip::address::from_string("127.0.0.1");
+  asio::ip::tcp::endpoint endpoint = asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->m_port);
 
-  rocket::TcpServer tcp_server(addr);
+  rocket::TcpServer tcp_server(endpoint);
 
   tcp_server.start();
 

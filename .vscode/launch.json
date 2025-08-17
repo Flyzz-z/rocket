@@ -11,6 +11,14 @@
 			"program": "${workspaceFolder}/bin/test_client",
 			"args": [],
 			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "test rpc server",
+			"program": "${workspaceFolder}/bin/test_rpc_server",
+			"args": ["../conf/rocket.xml"],
+			"cwd": "${workspaceFolder}/bin"
 		}
 	]
 }

@@ -125,7 +125,7 @@ int main() {
 
   rocket::Logger::InitGlobalLogger(0);
 
-  // test_tcp_client();
+  //test_tcp_client();
   test_rpc_channel();
 
   INFOLOG("test_rpc_channel end");

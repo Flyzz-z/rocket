@@ -39,27 +39,25 @@ CXXFLAGS += -g -O0 -std=c++20 -Wall -Wno-deprecated -Wno-unused-but-set-variable
 
 CXXFLAGS += -I./ -I$(PATH_ROCKET)	-I$(PATH_COMM) -I$(PATH_NET) -I$(PATH_TCP) -I$(PATH_CODER) -I$(PATH_RPC)
 
-LIBS += /usr/local/protobuf/lib/libprotobuf.a	/usr/local/lib/libtinyxml.a
+LIBS += /usr/local/lib/libprotobuf.a	/usr/local/lib/libtinyxml.a
 
+EXCLUDE_RPC_FILES := $(PATH_RPC)/rpc_channel.cc
 
 COMM_OBJ := $(patsubst $(PATH_COMM)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_COMM)/*.cc))
 NET_OBJ := $(patsubst $(PATH_NET)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_NET)/*.cc))
 TCP_OBJ := $(patsubst $(PATH_TCP)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_TCP)/*.cc))
 CODER_OBJ := $(patsubst $(PATH_CODER)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_CODER)/*.cc))
-RPC_OBJ := $(patsubst $(PATH_RPC)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_RPC)/*.cc))
+RPC_OBJ := $(patsubst $(PATH_RPC)/%.cc, $(PATH_OBJ)/%.o, $(filter-out $(EXCLUDE_RPC_FILES), $(wildcard $(PATH_RPC)/*.cc)))
 
-ALL_TESTS : $(PATH_BIN)/test_log $(PATH_BIN)/test_eventloop $(PATH_BIN)/test_tcp $(PATH_BIN)/test_client $(PATH_BIN)/test_rpc_client $(PATH_BIN)/test_rpc_server
-# ALL_TESTS : $(PATH_BIN)/test_log
+ALL_TESTS : $(PATH_BIN)/test_log  $(PATH_BIN)/test_tcp  $(PATH_BIN)/test_rpc_server $(PATH_BIN)/test_client
+# ALL_TESTS : $(PATH_BIN)/test_log  $(PATH_BIN)/test_rpc_client
 
-TEST_CASE_OUT := $(PATH_BIN)/test_log $(PATH_BIN)/test_eventloop $(PATH_BIN)/test_tcp $(PATH_BIN)/test_client  $(PATH_BIN)/test_rpc_client $(PATH_BIN)/test_rpc_server
+TEST_CASE_OUT := $(PATH_BIN)/test_log  $(PATH_BIN)/test_tcp $(PATH_BIN)/test_client  $(PATH_BIN)/test_rpc_client $(PATH_BIN)/test_rpc_server
 
 LIB_OUT := $(PATH_LIB)/librocket.a
 
 $(PATH_BIN)/test_log: $(LIB_OUT)
 	$(CXX) $(CXXFLAGS) $(PATH_TESTCASES)/test_log.cc -o $@ $(LIB_OUT) $(LIBS) -ldl -pthread
-
-$(PATH_BIN)/test_eventloop: $(LIB_OUT)
-	$(CXX) $(CXXFLAGS) $(PATH_TESTCASES)/test_eventloop.cc -o $@ $(LIB_OUT) $(LIBS) -ldl -pthread
 
 $(PATH_BIN)/test_tcp: $(LIB_OUT)
 	$(CXX) $(CXXFLAGS) $(PATH_TESTCASES)/test_tcp.cc -o $@ $(LIB_OUT) $(LIBS) -ldl -pthread

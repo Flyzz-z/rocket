@@ -1,6 +1,7 @@
 #ifndef ROCKER_NET_RPC_RPC_CONTROLLER_H
 #define ROCKER_NET_RPC_RPC_CONTROLLER_H
 
+#include <asio/ip/tcp.hpp>
 #include <google/protobuf/service.h>
 #include <google/protobuf/stubs/callback.h>
 #include <string>
@@ -9,6 +10,8 @@
 #include "rocket/common/log.h"
 
 namespace rocket {
+
+using asio::ip::tcp;
 
 class RpcController : public google::protobuf::RpcController {
 
@@ -40,13 +43,13 @@ class RpcController : public google::protobuf::RpcController {
 
   std::string GetMsgId();
 
-  void SetLocalAddr(NetAddr::s_ptr addr);
+  void SetLocalAddr(tcp::endpoint addr);
 
-  void SetPeerAddr(NetAddr::s_ptr addr);
+  void SetPeerAddr(tcp::endpoint addr);
 
-  NetAddr::s_ptr GetLocalAddr();
+  tcp::endpoint GetLocalAddr();
 
-  NetAddr::s_ptr GetPeerAddr();
+  tcp::endpoint GetPeerAddr();
 
   void SetTimeout(int timeout);
 
@@ -65,8 +68,8 @@ class RpcController : public google::protobuf::RpcController {
   bool m_is_cancled {false};
   bool m_is_finished {false};
 
-  NetAddr::s_ptr m_local_addr;
-  NetAddr::s_ptr m_peer_addr;
+  tcp::endpoint m_local_addr;
+  tcp::endpoint m_peer_addr;
 
   int m_timeout {1000};   // ms
 

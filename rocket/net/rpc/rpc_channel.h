@@ -5,7 +5,6 @@
 #include <memory>
 #include "rocket/net/tcp/net_addr.h"
 #include "rocket/net/tcp/tcp_client.h"
-#include "rocket/net/timer_event.h"
 
 namespace rocket {
 
@@ -40,10 +39,10 @@ class RpcChannel : public google::protobuf::RpcChannel, public std::enable_share
   // 获取 addr
   // 若 str 是 ip:port, 直接返回
   // 否则认为是 rpc 服务名，尝试从配置文件里面获取对应的 ip:port（后期会加上服务发现）
-  static NetAddr::s_ptr FindAddr(const std::string& str);
+  static tcp::endpoint FindAddr(const std::string& str);
 
  public:
-  RpcChannel(NetAddr::s_ptr peer_addr);
+  RpcChannel(tcp::endpoint peer_addr);
 
   ~RpcChannel();
 
@@ -68,8 +67,8 @@ class RpcChannel : public google::protobuf::RpcChannel, public std::enable_share
   void callBack();
 
  private:
-  NetAddr::s_ptr m_peer_addr {nullptr};
-  NetAddr::s_ptr m_local_addr {nullptr};
+  tcp::endpoint m_peer_addr;
+  tcp::endpoint m_local_addr;
 
   controller_s_ptr m_controller {nullptr};
   message_s_ptr m_request {nullptr};

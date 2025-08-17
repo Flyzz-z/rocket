@@ -5,22 +5,25 @@
 #include <asio/buffer.hpp>
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
+#include <asio/steady_timer.hpp>
 #include <asio/use_awaitable.hpp>
+#include <asio/redirect_error.hpp>
 #include <memory>
 #include <map>
 #include <queue>
 #include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/tcp/tcp_buffer.h"
 #include "rocket/net/io_thread.h"
 #include "rocket/net/coder/abstract_coder.h"
 #include "rocket/net/rpc/rpc_dispatcher.h"
+#include "tcp_buffer.h"
 
 namespace rocket {
 
 using asio::ip::tcp;
 using asio::awaitable;
+using asio::redirect_error;
 using asio::use_awaitable;
-using TcpDataBuffer = asio::dynamic_vector_buffer<char, std::allocator<char>>;
+
 
 enum TcpState {
   NotConnected = 1,
@@ -34,7 +37,7 @@ enum TcpConnectionType {
   TcpConnectionByClient = 2,  // 作为客户端使用，代表跟对赌服务端的连接
 };
 
-class TcpConnection {
+class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
  public:
 
   typedef std::shared_ptr<TcpConnection> s_ptr;
@@ -45,20 +48,16 @@ class TcpConnection {
 
   ~TcpConnection();
 
-  awaitable<void> reader();
+	void start();
 
   void execute();
-
-  awaitable<void> writer();
 
   void setState(const TcpState state);
 
   TcpState getState();
 
   void clear();
-
-  int getFd();
-
+  
   // 服务器主动关闭连接
   void shutdown();
 
@@ -82,6 +81,10 @@ class TcpConnection {
 
  private:
 
+  awaitable<void> reader();
+	awaitable<void> writer();
+
+
  	asio::io_context *m_io_context;
 
   tcp::socket m_socket;
@@ -89,19 +92,15 @@ class TcpConnection {
   tcp::endpoint m_local_addr;
   tcp::endpoint m_peer_addr;
 
-  TcpDataBuffer m_in_buffer;
-  TcpDataBuffer m_out_buffer;
-  int m_buffer_size;
-	std::vector<char> m_in_vector;
-	std::vector<char> m_out_vector; 
+  asio::steady_timer m_timer;
 
-  FdEvent* m_fd_event {NULL};
+  TcpBuffer m_in_buffer;
+  TcpBuffer m_out_buffer;
 
   AbstractCoder* m_coder {NULL};
 
   TcpState m_state;
 
-  int m_fd {0};
 
   TcpConnectionType m_connection_type {TcpConnectionByServer};
 

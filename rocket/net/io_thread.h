@@ -4,7 +4,6 @@
 #include <asio/io_context.hpp>
 #include <thread>
 #include <semaphore>
-#include "rocket/net/eventloop.h"
 
 namespace rocket {
 
@@ -17,11 +16,13 @@ class IOThread {
   
   ~IOThread();
 
-  EventLoop* getEventLoop();
+  asio::io_context* getIOContext();
 
   void start();
 
   void join();
+
+	void stop();
 
  public:
   static void* Main(void* arg);
@@ -29,7 +30,7 @@ class IOThread {
 
  private:
   pid_t m_thread_id {-1};    // 线程号
-  std::thread m_thread {0};   // 线程句柄
+  std::thread m_thread;   // 线程句柄
 
   asio::io_context m_io_context;
 

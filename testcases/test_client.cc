@@ -1,22 +1,25 @@
-#include <assert.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <string.h>
-#include <pthread.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <string>
-#include <memory>
-#include <unistd.h>
-#include "rocket/common/log.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
-#include "rocket/net/tcp/tcp_client.h"
-#include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/coder/string_coder.h"
 #include "rocket/net/coder/abstract_protocol.h"
+#include "rocket/net/coder/string_coder.h"
 #include "rocket/net/coder/tinypb_coder.h"
 #include "rocket/net/coder/tinypb_protocol.h"
+#include "rocket/net/tcp/net_addr.h"
+#include "rocket/net/tcp/tcp_client.h"
+#include <arpa/inet.h>
+#include <asio/awaitable.hpp>
+#include <asio/co_spawn.hpp>
+#include <asio/detached.hpp>
+#include <asio/use_awaitable.hpp>
+#include <assert.h>
+#include <fcntl.h>
+#include <memory>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <string.h>
+#include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 
 void test_connect() {
 
@@ -37,12 +40,13 @@ void test_connect() {
   server_addr.sin_port = htons(12346);
   inet_aton("127.0.0.1", &server_addr.sin_addr);
 
-  int rt = connect(fd, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr));
+  int rt = connect(fd, reinterpret_cast<sockaddr *>(&server_addr),
+                   sizeof(server_addr));
 
   DEBUGLOG("connect success");
 
   std::string msg = "hello rocket!";
-  
+
   rt = write(fd, msg.c_str(), msg.length());
 
   DEBUGLOG("success write %d bytes, [%s]", rt, msg.c_str());
@@ -50,38 +54,44 @@ void test_connect() {
   char buf[100];
   rt = read(fd, buf, 100);
   DEBUGLOG("success read %d bytes, [%s]", rt, std::string(buf).c_str());
-
 }
 
-void test_tcp_client() {
+// TODO 完善测试用例
+asio::awaitable<void> test_tcp_client() {
 
-  rocket::IPNetAddr::s_ptr addr = std::make_shared<rocket::IPNetAddr>("127.0.0.1", 12346);
+  asio::ip::tcp::endpoint addr = asio::ip::tcp::endpoint(
+      asio::ip::address_v4::from_string("127.0.0.1"), 8080);
   rocket::TcpClient client(addr);
-  client.connect([addr, &client]() {
-    DEBUGLOG("conenct to [%s] success", addr->toString().c_str());
-    std::shared_ptr<rocket::TinyPBProtocol> message = std::make_shared<rocket::TinyPBProtocol>();
-    message->m_msg_id = "123456789";
-    message->m_pb_data = "test pb data";
-    client.writeMessage(message, [](rocket::AbstractProtocol::s_ptr msg_ptr) {
-      DEBUGLOG("send message success");
-    });
+  co_await client.connect();
 
-    client.readMessage("123456789", [](rocket::AbstractProtocol::s_ptr msg_ptr) {
-      std::shared_ptr<rocket::TinyPBProtocol> message = std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
-      DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(), message->m_pb_data.c_str());
-    });
+  std::shared_ptr<rocket::TinyPBProtocol> message =
+      std::make_shared<rocket::TinyPBProtocol>();
+  message->m_msg_id = "123456789";
+  message->m_pb_data = "test pb data";
+  client.writeMessage(message, [](rocket::AbstractProtocol::s_ptr msg_ptr) {
+    DEBUGLOG("send message success");
   });
+
+  client.readMessage("123456789", [](rocket::AbstractProtocol::s_ptr msg_ptr) {
+    std::shared_ptr<rocket::TinyPBProtocol> message =
+        std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
+    DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
+             message->m_pb_data.c_str());
+  });
+
+	// sleep 10 s
+	std::this_thread::sleep_for(std::chrono::seconds(10));
 }
 
 int main() {
 
-  rocket::Config::SetGlobalConfig(NULL);
+  rocket::Config::SetGlobalConfig("../conf/rocket_client.xml");
 
   rocket::Logger::InitGlobalLogger(0);
 
   // test_connect();
-
-  test_tcp_client();
-
+	asio::io_context ioc;
+  asio::co_spawn(ioc,[]()->auto{return test_tcp_client();},asio::detached);
+	ioc.run();
   return 0;
 }

@@ -1,14 +1,15 @@
 #ifndef ROCKET_COMMON_LOG_H
 #define ROCKET_COMMON_LOG_H
 
+#include <condition_variable>
+#include <mutex>
+#include <semaphore>
 #include <string>
 #include <queue>
 #include <memory>
 #include <semaphore.h>
 
 #include "rocket/common/config.h"
-#include "rocket/common/mutex.h"
-#include "rocket/net/timer_event.h"
 
 namespace rocket {
 
@@ -105,7 +106,7 @@ class AsyncLogger {
   static void* Loop(void*);
 
  public:
-  pthread_t m_thread;
+  std::thread m_thread;
 
  private:
   // m_file_path/m_file_name_yyyymmdd.0
@@ -116,10 +117,10 @@ class AsyncLogger {
   std::string m_file_path;    // 日志输出路径
   int m_max_file_size {0};    // 日志单个文件最大大小, 单位为字节
 
-  sem_t m_sempahore;
+  std::binary_semaphore m_sempahore;
 
-  pthread_cond_t m_condtion;  // 条件变量
-  Mutex m_mutex;
+  std::condition_variable m_cond;
+  std::mutex m_mutex;
 
   std::string m_date;   // 当前打印日志的文件日期
   FILE* m_file_hanlder {NULL};   // 当前打开的日志文件句柄
@@ -173,9 +174,9 @@ class Logger {
 
   std::vector<std::string> m_app_buffer;
 
-  Mutex m_mutex;
+  std::mutex m_mutex;
 
-  Mutex m_app_mutex;
+  std::mutex m_app_mutex;
 
   // m_file_path/m_file_name_yyyymmdd.1
 
@@ -186,9 +187,6 @@ class Logger {
   AsyncLogger::s_ptr m_asnyc_logger;
 
   AsyncLogger::s_ptr m_asnyc_app_logger;
-
-  TimerEvent::s_ptr m_timer_event;
-
   int m_type {0};
 
 };

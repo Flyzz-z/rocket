@@ -23,6 +23,9 @@ IOThread::~IOThread() {
   m_thread.join();
 }
 
+asio::io_context* IOThread::getIOContext() {
+  return &m_io_context;
+}
 
 /*
 * IOThread::Main
@@ -39,6 +42,7 @@ void* IOThread::Main(void* arg) {
 
   io_thread->m_start_semaphore.acquire();
   DEBUGLOG("IOThread %d start loop ", io_thread->m_thread_id);
+	auto work_guard = asio::make_work_guard(io_thread->m_io_context);
   io_thread->m_io_context.run();
 
   DEBUGLOG("IOThread %d end loop ", io_thread->m_thread_id);
@@ -59,6 +63,8 @@ void IOThread::join() {
   m_thread.join();
 }
 
-
+void IOThread::stop() {
+  m_io_context.stop();
+}
 
 }

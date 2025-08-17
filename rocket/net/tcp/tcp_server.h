@@ -7,7 +7,6 @@
 #include "rocket/net/tcp/tcp_acceptor.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/eventloop.h"
 #include "rocket/net/io_thread_group.h"
 #include <asio/use_awaitable.hpp>
 #include <asio/co_spawn.hpp>
@@ -50,13 +49,10 @@ class TcpServer {
   
   std::unique_ptr<IOThreadGroup> m_io_thread_group;   // subReactor 组
 
-  FdEvent* m_listen_fd_event;
-
   int m_client_counts {0};
 
   std::set<TcpConnection::s_ptr> m_client;
 
-  TimerEvent::s_ptr m_clear_client_timer_event;
 
 };
 
