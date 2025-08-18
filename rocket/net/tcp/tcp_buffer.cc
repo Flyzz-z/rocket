@@ -1,12 +1,16 @@
 #include "net/tcp/tcp_buffer.h"
 #include <asio/buffer.hpp>
 #include <cstring>
+#include <iostream>
 
 namespace rocket {
 
 TcpBuffer::TcpBuffer(int size)
-    : m_buffer(asio::dynamic_buffer(m_buffer_vector, size)), m_size(size) {}
+    : m_buffer(asio::dynamic_buffer(m_buffer_vector)), m_size(size) {
+    }
 std::size_t TcpBuffer::dataSize() { return m_buffer.size(); }
+
+std::size_t TcpBuffer::maxSize() { return m_size; }
 
 void TcpBuffer::readFromBuffer(std::vector<char> &re, std::size_t size) {
   if (size <= 0)
@@ -32,9 +36,9 @@ void TcpBuffer::writeToBuffer(const char *buf, std::size_t size) {
 TcpDataBuffer &TcpBuffer::getBuffer() { return m_buffer; }
 
 std::vector<char> TcpBuffer::getBufferVecCopy() {
-  std::vector<char> re(m_buffer.size());
+  std::vector<char> re(m_buffer.data().size());
   const char *data_ptr = asio::buffer_cast<const char *>(m_buffer.data());
-  re.assign(data_ptr, data_ptr + m_buffer.size());
+  re.assign(data_ptr, data_ptr + m_buffer.data().size());
   return re;
 }
 

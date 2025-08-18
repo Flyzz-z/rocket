@@ -68,11 +68,12 @@ awaitable<void> TcpConnection::reader() {
         co_return;
       }
       // TODO 处理错误
+      auto data_ptr = m_in_buffer.getBuffer().prepare(m_in_buffer.maxSize());
       auto bytes_read =
-          co_await asio::async_read(m_socket, m_in_buffer.getBuffer(),
+          co_await asio::async_read(m_socket, data_ptr,
                                     asio::transfer_at_least(1), use_awaitable);
       m_in_buffer.commit(bytes_read);
-
+      std::cout<<bytes_read<<" "<<m_in_buffer.dataSize()<<std::endl;
       execute();
     }
   } catch (std::exception& e) {
@@ -156,7 +157,7 @@ awaitable<void> TcpConnection::writer() {
         std::size_t bytes_write = co_await asio::async_write(
             m_socket, m_out_buffer.getBuffer(), use_awaitable);
         m_out_buffer.consume(bytes_write);
-				INFOLOG("write bytes: %d, to endpoint[%s]", bytes_write,
+				INFOLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
                        m_peer_addr.address().to_string().c_str());
         if (m_connection_type == TcpConnectionByClient) {
           for (size_t i = 0; i < m_write_dones.size(); ++i) {

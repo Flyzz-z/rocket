@@ -16,6 +16,8 @@ public:
 
 	std::size_t dataSize();
 
+	std::size_t maxSize();
+
 	void writeToBuffer(const char* buf, std::size_t size);
 
 	void readFromBuffer(std::vector<char> &re, std::size_t size);

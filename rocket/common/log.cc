@@ -142,7 +142,6 @@ std::string LogEvent::toString() {
   int ms = now_time.tv_usec / 1000;
   time_str = time_str + "." + std::to_string(ms);
 
-
   m_pid = getPid();
   m_thread_id = getThreadId();
 
@@ -168,7 +167,7 @@ std::string LogEvent::toString() {
 
 void Logger::pushLog(const std::string &msg) {
   if (m_type == 0) {
-    printf((msg + "\n").c_str());
+    std::cout<<msg.c_str()<<std::endl;
     return;
   }
   std::unique_lock lock(m_mutex);
@@ -202,7 +201,7 @@ void *AsyncLogger::Loop(void *arg) {
 
   while (!logger->m_buffer.empty()) {
     std::unique_lock<std::mutex> lock(logger->m_mutex);
-    while (logger->m_buffer.empty()) {
+    if (logger->m_buffer.empty()) {
       logger->m_cond.wait(
           lock, [logger]() -> bool { return !logger->m_buffer.empty() || logger->m_stop_flag; });
     }
@@ -263,10 +262,6 @@ void *AsyncLogger::Loop(void *arg) {
       }
     }
     fflush(logger->m_file_hanlder);
-
-    if (logger->m_stop_flag) {
-      return NULL;
-    }
   }
 
   return NULL;

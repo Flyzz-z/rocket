@@ -48,7 +48,6 @@ void TcpClient::writeMessage(AbstractProtocol::s_ptr message, std::function<void
   // 2. 启动 connection 可写事件
   m_connection->pushSendMessage(message, done);
   m_connection->listenWrite();
-
 }
 
 
