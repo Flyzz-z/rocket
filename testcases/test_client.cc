@@ -78,6 +78,7 @@ asio::awaitable<void> test_tcp_client() {
     DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
              message->m_pb_data.c_str());
   });
+	std::cout<<1<<std::endl;
 	// sleep 10 s
 	std::this_thread::sleep_for(std::chrono::seconds(10));
 }

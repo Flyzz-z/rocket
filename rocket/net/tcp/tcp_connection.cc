@@ -155,7 +155,7 @@ awaitable<void> TcpConnection::writer() {
 
         // 错误处理
         std::size_t bytes_write = co_await asio::async_write(
-            m_socket, m_out_buffer.getBuffer(), use_awaitable);
+            m_socket, m_out_buffer.getBuffer().data(), use_awaitable);
         m_out_buffer.consume(bytes_write);
 				INFOLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
                        m_peer_addr.address().to_string().c_str());
