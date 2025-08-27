@@ -2,14 +2,17 @@
 #define ROCKET_COMMON_CONFIG_H
 
 #include "rocket/net/tcp/net_addr.h"
+#include <asio/ip/tcp.hpp>
 #include <map>
 #include <tinyxml/tinyxml.h>
 
 namespace rocket {
 
+using asio::ip::tcp;
+
 struct RpcStub {
   std::string name;
-  NetAddr::s_ptr addr;
+  tcp::endpoint addr;
   int timeout{2000};
 };
 

@@ -41,7 +41,7 @@ CXXFLAGS += -I./ -I$(PATH_ROCKET)	-I$(PATH_COMM) -I$(PATH_NET) -I$(PATH_TCP) -I$
 
 LIBS += /usr/local/lib/libprotobuf.a	/usr/local/lib/libtinyxml.a
 
-EXCLUDE_RPC_FILES := $(PATH_RPC)/rpc_channel.cc
+# EXCLUDE_RPC_FILES := $(PATH_RPC)/rpc_channel.cc
 
 COMM_OBJ := $(patsubst $(PATH_COMM)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_COMM)/*.cc))
 NET_OBJ := $(patsubst $(PATH_NET)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_NET)/*.cc))
@@ -49,8 +49,8 @@ TCP_OBJ := $(patsubst $(PATH_TCP)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_TCP)/
 CODER_OBJ := $(patsubst $(PATH_CODER)/%.cc, $(PATH_OBJ)/%.o, $(wildcard $(PATH_CODER)/*.cc))
 RPC_OBJ := $(patsubst $(PATH_RPC)/%.cc, $(PATH_OBJ)/%.o, $(filter-out $(EXCLUDE_RPC_FILES), $(wildcard $(PATH_RPC)/*.cc)))
 
-ALL_TESTS : $(PATH_BIN)/test_log  $(PATH_BIN)/test_tcp  $(PATH_BIN)/test_rpc_server $(PATH_BIN)/test_client
-# ALL_TESTS : $(PATH_BIN)/test_log  $(PATH_BIN)/test_rpc_client
+ALL_TESTS : $(PATH_BIN)/test_log  $(PATH_BIN)/test_tcp  $(PATH_BIN)/test_rpc_server $(PATH_BIN)/test_client  $(PATH_BIN)/test_rpc_client
+# ALL_TESTS : $(PATH_BIN)/test_log 
 
 TEST_CASE_OUT := $(PATH_BIN)/test_log  $(PATH_BIN)/test_tcp $(PATH_BIN)/test_client  $(PATH_BIN)/test_rpc_client $(PATH_BIN)/test_rpc_server
 

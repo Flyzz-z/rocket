@@ -1,3 +1,4 @@
+#include <asio/ip/address.hpp>
 #include <tinyxml/tinyxml.h>
 #include "rocket/common/config.h"
 
@@ -100,7 +101,7 @@ Config::Config(const char* xmlfile) {
 
       std::string ip = std::string(node->FirstChildElement("ip")->GetText());
       uint16_t port = std::atoi(node->FirstChildElement("port")->GetText());
-      stub.addr = std::make_shared<IPNetAddr>(ip, port);
+      stub.addr = tcp::endpoint(asio::ip::make_address(ip), port);
 
       m_rpc_stubs.insert(std::make_pair(stub.name, stub));
     }

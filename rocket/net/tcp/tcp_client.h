@@ -45,10 +45,13 @@ class TcpClient {
   tcp::endpoint getLocalAddr();
 
   //void addTimerEvent(TimerEvent::s_ptr timer_event);
+	void addTimer(int interval_ms, bool isRepeat ,std::function<void()> cb);
+
+	void addCoFunc(std::function<asio::awaitable<void>()> cb);
 
 
  private:
-  tcp::endpoint m_peer_addr;
+  tcp::endpoint m_peer_addr;	
   tcp::endpoint m_local_addr;
 
 	IOThreadSingleton *m_io_thread_singleton;

@@ -1,36 +1,27 @@
-#include <asio/ip/address.hpp>
-#include <assert.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <string.h>
-#include <pthread.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <string>
-#include <memory>
-#include <unistd.h>
-#include <google/protobuf/service.h>
-#include "rocket/common/log.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
-#include "rocket/net/tcp/tcp_client.h"
-#include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/coder/string_coder.h"
-#include "rocket/net/coder/abstract_protocol.h"
-#include "rocket/net/coder/tinypb_coder.h"
-#include "rocket/net/coder/tinypb_protocol.h"
-#include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/tcp/tcp_server.h"
 #include "rocket/net/rpc/rpc_dispatcher.h"
+#include "rocket/net/tcp/tcp_server.h"
+#include <arpa/inet.h>
+#include <asio/ip/address.hpp>
+#include <assert.h>
+#include <fcntl.h>
+#include <google/protobuf/service.h>
+#include <memory>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "order.pb.h"
 
 class OrderImpl : public Order {
- public:
-  void makeOrder(google::protobuf::RpcController* controller,
-                      const ::makeOrderRequest* request,
-                      ::makeOrderResponse* response,
-                      ::google::protobuf::Closure* done) {
+public:
+  void makeOrder(google::protobuf::RpcController *controller,
+                 const ::makeOrderRequest *request,
+                 ::makeOrderResponse *response,
+                 ::google::protobuf::Closure *done) {
     APPDEBUGLOG("start sleep 5s");
     sleep(5);
     APPDEBUGLOG("end sleep 5s");
@@ -47,11 +38,9 @@ class OrderImpl : public Order {
       done = NULL;
     }
   }
-
 };
 
-
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
 
   if (argc != 2) {
     printf("Start test_rpc_server error, argc not 2 \n");
@@ -68,7 +57,8 @@ int main(int argc, char* argv[]) {
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);
 
   asio::ip::address addr = asio::ip::address::from_string("127.0.0.1");
-  asio::ip::tcp::endpoint endpoint = asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->m_port);
+  asio::ip::tcp::endpoint endpoint =
+      asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->m_port);
 
   rocket::TcpServer tcp_server(endpoint);
 

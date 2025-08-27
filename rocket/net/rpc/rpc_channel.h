@@ -3,7 +3,6 @@
 
 #include <google/protobuf/service.h>
 #include <memory>
-#include "rocket/net/tcp/net_addr.h"
 #include "rocket/net/tcp/tcp_client.h"
 
 namespace rocket {
