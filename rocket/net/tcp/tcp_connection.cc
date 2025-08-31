@@ -173,9 +173,9 @@ awaitable<void> TcpConnection::writer() {
   }
 }
 
-void TcpConnection::setState(const TcpState state) { m_state = Connected; }
-
-TcpState TcpConnection::getState() { return m_state; }
+bool TcpConnection::is_open() {
+  return m_socket.is_open();
+}
 
 void TcpConnection::clear() {
   // 处理一些关闭连接后的清理动作

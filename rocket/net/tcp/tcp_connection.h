@@ -10,9 +10,6 @@
 #include <asio/redirect_error.hpp>
 #include <memory>
 #include <map>
-#include <queue>
-#include "rocket/net/tcp/net_addr.h"
-#include "rocket/net/io_thread.h"
 #include "rocket/net/coder/abstract_coder.h"
 #include "rocket/net/rpc/rpc_dispatcher.h"
 #include "tcp_buffer.h"
@@ -52,9 +49,7 @@ class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
 
   void execute();
 
-  void setState(const TcpState state);
-
-  TcpState getState();
+	bool is_open();
 
   void clear();
   

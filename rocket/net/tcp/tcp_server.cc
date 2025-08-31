@@ -3,17 +3,19 @@
 #include "rocket/common/log.h"
 #include "rocket/net/io_thread_group.h"
 #include "rocket/net/tcp/tcp_connection.h"
+#include <asio/awaitable.hpp>
 #include <asio/co_spawn.hpp>
+#include <asio/detached.hpp>
 #include <asio/signal_set.hpp>
+#include <asio/steady_timer.hpp>
 #include <asio/use_awaitable.hpp>
-#include <cinttypes>
 #include <memory>
 
 namespace rocket {
 
 TcpServer::TcpServer(tcp::endpoint local_addr)
     : m_local_addr(local_addr), m_main_io_context(1) {
- 
+
   init();
   INFOLOG("rocket TcpServer listen sucess on [%s:%u]",
           m_local_addr.address().to_string().c_str(), m_local_addr.port());
@@ -33,6 +35,10 @@ void TcpServer::init() {
   co_spawn(
       m_main_io_context, [this]() -> auto { return this->listener(); },
       detached);
+
+	addTimer(5000, true, [this]()->void{
+		ClearClientTimerFunc();
+	});
   // TODO 处理clean
   // m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true,
   // std::bind(&TcpServer::ClearClientTimerFunc, this));
@@ -55,7 +61,7 @@ awaitable<void> TcpServer::listener() {
           std::make_shared<TcpConnection>(run_io_context, std::move(socket),
                                           128);
       connection->start();
-      m_client.insert(connection);
+      m_clients.insert(connection);
     }
   } catch (std::exception &e) {
     ERRORLOG("TcpServer::listener() exception: %s", e.what());
@@ -71,19 +77,33 @@ void TcpServer::start() {
 }
 
 void TcpServer::ClearClientTimerFunc() {
-  auto it = m_client.begin();
-  for (it = m_client.begin(); it != m_client.end();) {
+  auto it = m_clients.begin();
+  for (it = m_clients.begin(); it != m_clients.end();) {
     // TcpConnection::ptr s_conn = i.second;
-    // DebugLog << "state = " << s_conn->getState();
     if ((*it) != nullptr && (*it).use_count() > 0 &&
-        (*it)->getState() == Closed) {
+        !((*it)->is_open())) {
       // need to delete TcpConnection
-      DEBUGLOG("TcpConection will delete, state=%d", (*it)->getState());
-      it = m_client.erase(it);
+      DEBUGLOG("TcpConection will delete, because it is closed");
+      it = m_clients.erase(it);
     } else {
       it++;
     }
   }
 }
 
+void TcpServer::addTimer(int interval_ms, bool isRepeat,
+                         std::function<void()> cb) {
+  asio::co_spawn(
+      m_main_io_context,
+      [this, interval_ms, isRepeat, cb]() -> awaitable<void> {
+
+				asio::steady_timer timer(m_main_io_context);
+        do {
+					timer.expires_after(std::chrono::milliseconds(interval_ms));
+          co_await timer.async_wait(asio::use_awaitable);
+          cb();
+        } while (isRepeat);
+      },
+      asio::detached);
+}
 } // namespace rocket
