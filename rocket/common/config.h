@@ -1,7 +1,6 @@
 #ifndef ROCKET_COMMON_CONFIG_H
 #define ROCKET_COMMON_CONFIG_H
 
-#include "rocket/net/tcp/net_addr.h"
 #include <asio/ip/tcp.hpp>
 #include <map>
 #include <tinyxml/tinyxml.h>

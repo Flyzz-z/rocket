@@ -9,8 +9,6 @@
 #include <memory>
 #include <semaphore.h>
 
-#include "rocket/common/config.h"
-
 namespace rocket {
 
 
