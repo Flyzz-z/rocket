@@ -8,7 +8,6 @@
 #include "rocket/common/error_code.h"
 #include "rocket/net/rpc/rpc_controller.h"
 #include "rocket/net/rpc/rpc_closure.h"
-#include "rocket/net/tcp/net_addr.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/common/run_time.h"
 

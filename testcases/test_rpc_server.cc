@@ -1,5 +1,7 @@
+#include "order.pb.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
+#include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_dispatcher.h"
 #include "rocket/net/tcp/tcp_server.h"
 #include <arpa/inet.h>
@@ -13,8 +15,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#include "order.pb.h"
 
 class OrderImpl : public Order {
 public:
@@ -52,6 +52,10 @@ int main(int argc, char *argv[]) {
   rocket::Config::SetGlobalConfig(argv[1]);
 
   rocket::Logger::InitGlobalLogger();
+
+	// 注册etcd服务
+  rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
+	rocket::EtcdRegistry::registerServicesFromConfig();
 
   std::shared_ptr<OrderImpl> service = std::make_shared<OrderImpl>();
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);

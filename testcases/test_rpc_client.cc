@@ -2,6 +2,7 @@
 #include "rocket/common/log.h"
 #include "rocket/net/coder/abstract_protocol.h"
 #include "rocket/net/coder/tinypb_protocol.h"
+#include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_channel.h"
 #include "rocket/net/rpc/rpc_closure.h"
 #include "rocket/net/tcp/tcp_client.h"
@@ -20,54 +21,57 @@
 
 #include "order.pb.h"
 
-asio::awaitable<void> test_tcp_client() {
+// asio::awaitable<void> test_tcp_client() {
 
-  asio::ip::tcp::endpoint endpoint = asio::ip::tcp::endpoint(
-      asio::ip::address_v4::from_string("127.0.0.1"), 12345);
-  rocket::TcpClient client(endpoint);
-  co_await client.connect();
+//   asio::ip::tcp::endpoint endpoint = asio::ip::tcp::endpoint(
+//       asio::ip::address_v4::from_string("127.0.0.1"), 12345);
+//   rocket::TcpClient client(endpoint);
+//   co_await client.connect();
 
-  DEBUGLOG("conenct to [%s] success", endpoint.address().to_string().c_str());
-  std::shared_ptr<rocket::TinyPBProtocol> message =
-      std::make_shared<rocket::TinyPBProtocol>();
-  message->m_msg_id = "99998888";
-  message->m_pb_data = "test pb data";
+//   DEBUGLOG("conenct to [%s] success",
+//   endpoint.address().to_string().c_str());
+//   std::shared_ptr<rocket::TinyPBProtocol> message =
+//       std::make_shared<rocket::TinyPBProtocol>();
+//   message->m_msg_id = "99998888";
+//   message->m_pb_data = "test pb data";
 
-  makeOrderRequest request;
-  request.set_price(100);
-  request.set_goods("apple");
+//   makeOrderRequest request;
+//   request.set_price(100);
+//   request.set_goods("apple");
 
-  if (!request.SerializeToString(&(message->m_pb_data))) {
-    ERRORLOG("serilize error");
-    co_return;
-  }
+//   if (!request.SerializeToString(&(message->m_pb_data))) {
+//     ERRORLOG("serilize error");
+//     co_return;
+//   }
 
-  message->m_method_name = "Order.makeOrder";
+//   message->m_method_name = "Order.makeOrder";
 
-  client.writeMessage(message,
-                      [request](rocket::AbstractProtocol::s_ptr msg_ptr) {
-                        DEBUGLOG("send message success, request[%s]",
-                                 request.ShortDebugString().c_str());
-                      });
-  client.readMessage("99998888", [](rocket::AbstractProtocol::s_ptr msg_ptr) {
-    std::shared_ptr<rocket::TinyPBProtocol> message =
-        std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
-    DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
-             message->m_pb_data.c_str());
-    makeOrderResponse response;
+//   client.writeMessage(message,
+//                       [request](rocket::AbstractProtocol::s_ptr msg_ptr) {
+//                         DEBUGLOG("send message success, request[%s]",
+//                                  request.ShortDebugString().c_str());
+//                       });
+//   client.readMessage("99998888", [](rocket::AbstractProtocol::s_ptr msg_ptr)
+//   {
+//     std::shared_ptr<rocket::TinyPBProtocol> message =
+//         std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
+//     DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
+//              message->m_pb_data.c_str());
+//     makeOrderResponse response;
 
-    if (!response.ParseFromString(message->m_pb_data)) {
-      ERRORLOG("deserialize error");
-      return;
-    }
-    DEBUGLOG("get response success, response[%s]",
-             response.ShortDebugString().c_str());
-  });
-}
+//     if (!response.ParseFromString(message->m_pb_data)) {
+//       ERRORLOG("deserialize error");
+//       return;
+//     }
+//     DEBUGLOG("get response success, response[%s]",
+//              response.ShortDebugString().c_str());
+//   });
+// }
 
 void test_rpc_channel() {
 
-  NEWRPCCHANNEL("127.0.0.1:12345", channel);
+  // NEWRPCCHANNEL("127.0.0.1:12345", channel);
+  NEWRPCCHANNEL("Order", channel);
 
   // std::shared_ptr<makeOrderRequest> request =
   // std::make_shared<makeOrderRequest>();
@@ -129,10 +133,12 @@ int main() {
 
   rocket::Logger::InitGlobalLogger(0);
 
+  rocket::EtcdRegistry::init("127.0.0.1",2379, "root", "123456");
+
   // test_tcp_client();
   test_rpc_channel();
-	sleep(10);
-	
+  sleep(10);
+
   INFOLOG("test_rpc_channel end");
 
   return 0;

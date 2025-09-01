@@ -1,9 +1,11 @@
 #include "rocket/net/rpc/rpc_channel.h"
+#include "rocket/common/config.h"
 #include "rocket/common/error_code.h"
 #include "rocket/common/log.h"
 #include "rocket/common/msg_id_util.h"
 #include "rocket/common/run_time.h"
 #include "rocket/net/coder/tinypb_protocol.h"
+#include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_controller.h"
 #include "rocket/net/tcp/tcp_client.h"
 #include <asio/co_spawn.hpp>
@@ -158,8 +160,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
             getTcpClient()->getLocalAddr().address().to_string().c_str());
 
     getTcpClient()->writeMessage(
-        req_protocol,
-        [req_protocol, this](AbstractProtocol::s_ptr) mutable {
+        req_protocol, [req_protocol, this](AbstractProtocol::s_ptr) mutable {
           INFOLOG("%s | send rpc request success. call method name[%s], peer "
                   "addr[%s], local addr[%s]",
                   req_protocol->m_msg_id.c_str(),
@@ -250,6 +251,16 @@ tcp::endpoint RpcChannel::FindAddr(const std::string &str) {
     }
   }
 
+  // 根据服务名从注册中心获取
+	DEBUGLOG("try to find addr in etcd registry of str[%s]", str.c_str());
+  auto addr = EtcdRegistry::GetInstance()->discoverService(str);
+  if (addr != "") {
+    std::string ip = addr.substr(0, addr.find(":"));
+    int port = std::stoi(addr.substr(addr.find(":") + 1));
+    return tcp::endpoint(asio::ip::make_address(ip), port);
+  }
+
+  // 根据服务名从配置文件中获取
   auto it = Config::GetGlobalConfig()->m_rpc_stubs.find(str);
   if (it != Config::GetGlobalConfig()->m_rpc_stubs.end()) {
     INFOLOG("find addr [%s] in global config of str[%s]",

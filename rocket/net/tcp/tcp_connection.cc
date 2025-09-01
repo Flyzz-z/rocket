@@ -69,7 +69,6 @@ awaitable<void> TcpConnection::reader() {
       auto bytes_read = co_await asio::async_read(
           m_socket, data_ptr, asio::transfer_at_least(1), use_awaitable);
       m_in_buffer.commit(bytes_read);
-      std::cout << bytes_read << " " << m_in_buffer.dataSize() << std::endl;
       execute();
     }
   } catch (std::exception &e) {

@@ -1,7 +1,6 @@
-#include <memory>
 #include "rocket/common/log.h"
-#include "rocket/net/tcp/net_addr.h"
 #include "rocket/net/tcp/tcp_server.h"
+#include "rocket/common/config.h"
 
 void test_tcp_server() {
 
