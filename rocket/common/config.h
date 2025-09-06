@@ -15,6 +15,13 @@ struct RpcStub {
   int timeout{2000};
 };
 
+struct EtcdConfig {
+  std::string ip;
+  int port{0};
+  std::string username;
+  std::string password;
+};
+
 class Config {
 public:
   Config(const char *xmlfile);
@@ -40,6 +47,8 @@ public:
   TiXmlDocument *m_xml_document{NULL};
 
   std::map<std::string, RpcStub> m_rpc_stubs;
+
+	EtcdConfig m_etcd_config;
 };
 
 } // namespace rocket

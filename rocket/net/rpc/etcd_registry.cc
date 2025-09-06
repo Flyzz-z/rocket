@@ -2,6 +2,7 @@
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
 #include <etcd/Response.hpp>
+#include <etcd/KeepAlive.hpp>
 #include <memory>
 #include <string>
 
@@ -20,16 +21,31 @@ void EtcdRegistry::init(const std::string &ip, int port,
   instance->m_port = port;
 }
 
+void EtcdRegistry::initFromConfig() {
+  auto config = Config::GetGlobalConfig();
+  init(config->m_etcd_config.ip, config->m_etcd_config.port,
+       config->m_etcd_config.username, config->m_etcd_config.password);
+	registerServicesFromConfig();
+}
+
 bool EtcdRegistry::registerService(const std::string &service_name,
                                    const std::string &service_ip,
                                    int service_port) {
-
+					
   try {
     string addr = service_ip + ":" + std::to_string(service_port);
     string key = "/rocket/service/" + service_name + "/" + addr;
-    string vale = addr;
-    etcd::Response res = m_etcd_client->set(key, vale).get();
+    string val = addr;
+
+		// 创建租约,自动续约
+		DEBUGLOG("create lease");
+		std::shared_ptr<etcd::KeepAlive> keep_alive =
+      m_etcd_client->leasekeepalive(30).get();
+		m_keep_alives[key] = keep_alive;
+
+    etcd::Response res = m_etcd_client->set(key, val,keep_alive->Lease()).get();
     if (res.is_ok()) {
+			DEBUGLOG("register service %s success")
       return true;
     } else {
       ERRORLOG("register service %s failed, why %s", service_name.c_str(),
@@ -41,6 +57,8 @@ bool EtcdRegistry::registerService(const std::string &service_name,
   return false;
 }
 
+// 该函数暂未使用
+// TODO 待添加处理租约
 void EtcdRegistry::unregisterService(const string &service_name) {
   try {
     string addr = m_ip + ":" + std::to_string(m_port);

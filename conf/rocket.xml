@@ -18,7 +18,7 @@
 		<port>2379</port>
 		<timeout>1000</timeout>
 		<username>root</username>
-		<password>20010121</password>
+		<password>123456</password>
 	</etcd>
 
 

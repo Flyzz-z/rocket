@@ -2,9 +2,12 @@
 #define ROCKET_NET_RPC_ETCD_REGISTRY_H
 
 #include "etcd/Client.hpp"
+#include "io_thread.h"
 #include "singleton.h"
+#include <etcd/KeepAlive.hpp>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace rocket {
 
@@ -15,6 +18,7 @@ public:
 
   static void init(const std::string &ip, int port, const std::string &username,
                    const std::string &password);
+	static void initFromConfig();
   static void registerServicesFromConfig();
 
   bool registerService(const std::string &service_name,
@@ -31,6 +35,7 @@ private:
   std::string m_username;
   std::string m_password;
   std::unique_ptr<etcd::Client> m_etcd_client;
+	std::unordered_map<std::string, std::shared_ptr<etcd::KeepAlive>> m_keep_alives;
 };
 
 } // namespace rocket

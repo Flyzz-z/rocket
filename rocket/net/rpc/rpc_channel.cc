@@ -260,7 +260,7 @@ tcp::endpoint RpcChannel::FindAddr(const std::string &str) {
     return tcp::endpoint(asio::ip::make_address(ip), port);
   }
 
-  // 根据服务名从配置文件中获取
+  // 根据服务名从配置文件中获取，调用服务地址
   auto it = Config::GetGlobalConfig()->m_rpc_stubs.find(str);
   if (it != Config::GetGlobalConfig()->m_rpc_stubs.end()) {
     INFOLOG("find addr [%s] in global config of str[%s]",

@@ -54,10 +54,11 @@ int main(int argc, char *argv[]) {
   rocket::Logger::InitGlobalLogger();
 
 	// 注册etcd服务
-  rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
-	rocket::EtcdRegistry::registerServicesFromConfig();
+	// TODO 替换从配置加载并启动
+  rocket::EtcdRegistry::initFromConfig();
 
   std::shared_ptr<OrderImpl> service = std::make_shared<OrderImpl>();
+	// 注册服务实现
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);
 
   asio::ip::address addr = asio::ip::address::from_string("127.0.0.1");

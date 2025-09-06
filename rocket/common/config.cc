@@ -1,6 +1,7 @@
 #include <asio/ip/address.hpp>
 #include <tinyxml/tinyxml.h>
 #include "rocket/common/config.h"
+#include "rocket/net/rpc/etcd_registry.h"
 
 
 
@@ -107,6 +108,22 @@ Config::Config(const char* xmlfile) {
     }
   }
 
+	TiXmlElement* etcd_node = root_node->FirstChildElement("etcd");
+	if(etcd_node) {
+		std::string etcd_ip = std::string(etcd_node->FirstChildElement("ip")->GetText());
+		std::string etcd_port = std::string(etcd_node->FirstChildElement("port")->GetText());
+		std::string etcd_username = std::string(etcd_node->FirstChildElement("username")->GetText());
+		std::string etcd_password = std::string(etcd_node->FirstChildElement("password")->GetText());
+
+		if(etcd_ip.empty() || etcd_port.empty() || etcd_username.empty() || etcd_password.empty()) {
+			printf("should config etcd ip, port, username, password");
+		}
+
+		m_etcd_config.ip = etcd_ip;
+		m_etcd_config.port = std::atoi(etcd_port.c_str());
+		m_etcd_config.username = etcd_username;
+		m_etcd_config.password = etcd_password;
+	}
 
 
   printf("Server -- PORT[%d], IO Threads[%d]\n", m_port, m_io_threads);
