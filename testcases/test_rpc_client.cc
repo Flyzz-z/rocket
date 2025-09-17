@@ -107,10 +107,6 @@ void test_rpc_channel() {
       });
 
   {
-    std::shared_ptr<rocket::RpcChannel> channel =
-        std::make_shared<rocket::RpcChannel>(
-            rocket::RpcChannel::FindAddr("127.0.0.1:12345"));
-    ;
     channel->Init(controller, request, response, closure);
     Order_Stub(channel.get())
         .makeOrder(controller.get(), request.get(), response.get(),

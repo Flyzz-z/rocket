@@ -27,7 +27,7 @@
       <!-- 默认配置 -->
       <!-- 调用下游RPC 服务时，需要将其 ip port 配置在此处 -->
       <name>Order</name>
-      <ip>0.0.0.0</ip>
+      <ip>192.168.124.128</ip>
       <port>12345</port>
       <timeout>1000</timeout>
     </rpc_server> 

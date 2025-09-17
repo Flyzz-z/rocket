@@ -18,19 +18,19 @@ class RpcController : public google::protobuf::RpcController {
   RpcController() { INFOLOG("RpcController"); } 
   ~RpcController() { INFOLOG("~RpcController"); } 
 
-  void Reset();
+  void Reset() override;
 
-  bool Failed() const;
+  bool Failed() const override;
 
-  std::string ErrorText() const;
+  std::string ErrorText() const override;
 
-  void StartCancel();
+  void StartCancel() override;
 
-  void SetFailed(const std::string& reason);
+  void SetFailed(const std::string& reason) override;
 
-  bool IsCanceled() const;
+  bool IsCanceled() const override;
 
-  void NotifyOnCancel(google::protobuf::Closure* callback);
+  void NotifyOnCancel(google::protobuf::Closure* callback) override;
 
   void SetError(int32_t error_code, const std::string error_info);
 
@@ -50,8 +50,8 @@ class RpcController : public google::protobuf::RpcController {
 
   tcp::endpoint GetPeerAddr();
 
-  void SetTimeout(int timeout);
-
+  void SetTimeout(int timeout) ;
+ 
   int GetTimeout();
 
   bool Finished();

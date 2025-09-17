@@ -21,8 +21,6 @@ class TcpClient {
 
   ~TcpClient();
 
-  // 异步的进行 conenct
-  // 如果 connect 完成，done 会被执行
   asio::awaitable<void> connect();
 
   // 异步的发送 message

@@ -18,10 +18,12 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/service.h>
 
-// TODO 完善rpc_channel
+
 namespace rocket {
 
-RpcChannel::RpcChannel(tcp::endpoint peer_addr) : m_peer_addr(peer_addr) {
+// TODO 思考如何利用移动语义
+RpcChannel::RpcChannel(std::vector<tcp::endpoint> peer_addrs)
+    : m_peer_addrs(peer_addrs) {
   INFOLOG("RpcChannel");
 }
 
@@ -29,6 +31,7 @@ RpcChannel::~RpcChannel() { INFOLOG("~RpcChannel"); }
 
 void RpcChannel::callBack() {
   RpcController *my_controller = dynamic_cast<RpcController *>(getController());
+  // 如果finsh直接返回，即便rpc返回结果，也会返回
   if (my_controller->Finished()) {
     return;
   }
@@ -63,14 +66,30 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     return;
   }
 
-  if (m_peer_addr.address().is_unspecified()) {
+  // index归0
+  if (m_addr_index >= m_peer_addrs.size()) {
+    m_addr_index = 0;
+  }
+
+  tcp::endpoint peer_addr;
+  for (int i = 0; i < m_peer_addrs.size(); i++) {
+    if (m_peer_addrs[m_addr_index].address().is_unspecified()) {
+			m_addr_index = (m_addr_index + 1) % m_peer_addrs.size();
+      continue;
+    } else {
+			peer_addr = m_peer_addrs[m_addr_index];
+			break;
+		}
+  }
+
+  if (peer_addr.address().is_unspecified()) {
     ERRORLOG("failed get peer addr");
     my_controller->SetError(ERROR_RPC_PEER_ADDR, "peer addr nullptr");
     callBack();
     return;
   }
 
-  m_client = std::make_shared<TcpClient>(m_peer_addr);
+  m_client = std::make_shared<TcpClient>(peer_addr);
 
   // 设置msg_id
   if (my_controller->GetMsgId().empty()) {
@@ -159,6 +178,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
             getTcpClient()->getLocalAddr().address().to_string().c_str());
 
+    DEBUGLOG("client make write message");
     getTcpClient()->writeMessage(
         req_protocol, [req_protocol, this](AbstractProtocol::s_ptr) mutable {
           INFOLOG("%s | send rpc request success. call method name[%s], peer "
@@ -169,6 +189,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
                   getTcpClient()->getLocalAddr().address().to_string().c_str());
         });
 
+    DEBUGLOG("client make read message");
     getTcpClient()->readMessage(
         req_protocol->m_msg_id,
         [this, my_controller](AbstractProtocol::s_ptr msg) mutable {
@@ -240,36 +261,44 @@ google::protobuf::Closure *RpcChannel::getClosure() { return m_closure.get(); }
 
 TcpClient *RpcChannel::getTcpClient() { return m_client.get(); }
 
-tcp::endpoint RpcChannel::FindAddr(const std::string &str) {
+std::vector<tcp::endpoint> RpcChannel::FindAddr(const std::string &str) {
   size_t pos = str.find(":");
   if (pos != std::string::npos && pos < str.size() && pos > 0) {
     asio::error_code ec;
     auto addr = asio::ip::make_address(str.substr(0, pos), ec);
     auto port = std::stoi(str.substr(pos + 1));
     if (!ec && port > 0) {
-      return tcp::endpoint(addr, port);
+      return {tcp::endpoint(addr, port)};
     }
   }
 
   // 根据服务名从注册中心获取
-	DEBUGLOG("try to find addr in etcd registry of str[%s]", str.c_str());
-  auto addr = EtcdRegistry::GetInstance()->discoverService(str);
-  if (addr != "") {
-    std::string ip = addr.substr(0, addr.find(":"));
-    int port = std::stoi(addr.substr(addr.find(":") + 1));
-    return tcp::endpoint(asio::ip::make_address(ip), port);
+  // TODO 适配多地址
+  DEBUGLOG("try to find addr in etcd registry of str[%s]", str.c_str());
+  auto addrs = EtcdRegistry::GetInstance()->discoverService(str);
+  if (addrs.size() > 0) {
+    std::vector<tcp::endpoint> ret;
+    for (const auto &addr : addrs) {
+      std::string ip = addr.substr(0, addr.find(":"));
+      int port = std::stoi(addr.substr(addr.find(":") + 1));
+      ret.emplace_back(asio::ip::make_address(ip), port);
+    }
+    return ret;
   }
 
   // 根据服务名从配置文件中获取，调用服务地址
+  // 配置当前仅支持但服务地址
   auto it = Config::GetGlobalConfig()->m_rpc_stubs.find(str);
   if (it != Config::GetGlobalConfig()->m_rpc_stubs.end()) {
     INFOLOG("find addr [%s] in global config of str[%s]",
             (*it).second.addr.address().to_string().c_str(), str.c_str());
-    return (*it).second.addr;
+    return {(*it).second.addr};
   } else {
     INFOLOG("can not find addr in global config of str[%s]", str.c_str());
-    return tcp::endpoint();
+    return {};
   }
+
+  return {};
 }
 
 } // namespace rocket

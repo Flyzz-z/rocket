@@ -33,6 +33,7 @@ asio::awaitable<void> TcpClient::connect() {
         m_io_context, std::move(socket), 128, TcpConnectionByClient);
     m_connection->start();
   } catch (std::exception &e) {
+		//TODO 异常了要怎么处理呢
     INFOLOG("tcp connect error %s", e.what());
     // m_connect_error_code = ErrorCode::TCP_CONNECT_ERROR;
     m_connect_error_info = std::string("tcp connect exception: ") + e.what();

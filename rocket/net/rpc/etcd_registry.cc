@@ -1,13 +1,15 @@
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
+#include <atomic>
 #include <etcd/Response.hpp>
 #include <etcd/KeepAlive.hpp>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace rocket {
-EtcdRegistry::EtcdRegistry() {}
+EtcdRegistry::EtcdRegistry() : m_services_ac(std::make_shared<service_map>()),m_services_bk(std::make_shared<service_map>()) {}
 
 EtcdRegistry::~EtcdRegistry() {}
 
@@ -72,14 +74,44 @@ void EtcdRegistry::unregisterService(const string &service_name) {
   // TODO 没有处理失败情况
 }
 
-string EtcdRegistry::discoverService(const string &service_name) {
+/*
+	优先从本地缓存获取，不存在则从etcd获取
+*/
+std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
+
+
+	// 优先缓存获取
+	auto services_map = std::atomic_load(&m_services_ac);
+	if(services_map->count(service_name)) {
+		return services_map->at(service_name);
+	}
+	std::vector<std::string> vec = loadByKey(service_name);
+	// 更新缓存
+	if(vec.size() > 0) {
+		std::atomic_exchange(&m_services_ac, m_services_bk);
+		m_services_bk = std::make_shared<service_map>(*(std::atomic_load(&m_services_ac)));
+	}
+
+	DEBUGLOG("discoverService service_name: %s, vec.size(): %d",service_name.c_str(), vec.size());
+  return vec;
+}
+
+std::vector<string> EtcdRegistry::loadByKey(const string &service_name) {
   try {
     std::string key = "/rocket/service/" + service_name;
     etcd::Response res = m_etcd_client->ls(key).get();
     if (res.is_ok()) {
       if (res.keys().size() > 0) {
         DEBUGLOG("etcd get service %s success", service_name.c_str());
-        return res.values()[0].as_string();
+				std::vector<std::string> vec;
+				for(auto val : res.values()) {
+					vec.emplace_back(val.as_string());
+				}
+
+				// 设置bk缓存
+				std::unique_lock<std::mutex> lk(m_bk_mutex);
+				(*m_services_bk)[service_name] = vec;
+        return vec;
       } else {
         ERRORLOG("etcd service %s not found", service_name.c_str());
       }
@@ -91,8 +123,9 @@ string EtcdRegistry::discoverService(const string &service_name) {
     ERRORLOG("etcd discover service %s failed, why", service_name.c_str(),
              e.what());
   }
-  return "";
+	return {};
 }
+
 
 void EtcdRegistry::registerServicesFromConfig() {
 

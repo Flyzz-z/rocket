@@ -2,7 +2,6 @@
 #define ROCKET_NET_RPC_ETCD_REGISTRY_H
 
 #include "etcd/Client.hpp"
-#include "io_thread.h"
 #include "singleton.h"
 #include <etcd/KeepAlive.hpp>
 #include <memory>
@@ -18,7 +17,7 @@ public:
 
   static void init(const std::string &ip, int port, const std::string &username,
                    const std::string &password);
-	static void initFromConfig();
+  static void initFromConfig();
   static void registerServicesFromConfig();
 
   bool registerService(const std::string &service_name,
@@ -26,7 +25,10 @@ public:
 
   void unregisterService(const std::string &service_name);
 
-  string discoverService(const std::string &service_name);
+  std::vector<std::string> discoverService(const std::string &service_name);
+
+	std::vector<std::string> loadByKey(const std::string &service_name);
+	//TODO 添加定期从etcd更新服务信息
 
 private:
   std::string m_name;
@@ -35,7 +37,18 @@ private:
   std::string m_username;
   std::string m_password;
   std::unique_ptr<etcd::Client> m_etcd_client;
-	std::unordered_map<std::string, std::shared_ptr<etcd::KeepAlive>> m_keep_alives;
+  std::unordered_map<std::string, std::shared_ptr<etcd::KeepAlive>>
+      m_keep_alives;
+
+	/*
+		ac使用atomic操作
+		bk使用lock
+	 */
+  using service_map = std::unordered_map<std::string, std::vector<std::string>>;
+ 	std::shared_ptr<service_map> m_services_ac;
+  std::shared_ptr<service_map> m_services_bk;
+	// 写bk的锁
+	std::mutex m_bk_mutex;
 };
 
 } // namespace rocket

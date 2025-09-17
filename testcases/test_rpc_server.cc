@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 	// 注册服务实现
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);
 
-  asio::ip::address addr = asio::ip::address::from_string("127.0.0.1");
+  asio::ip::address addr = asio::ip::address::from_string("192.168.124.128");
   asio::ip::tcp::endpoint endpoint =
       asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->m_port);
 
