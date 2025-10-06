@@ -1,12 +1,14 @@
 #ifndef ROCKET_NET_TCP_SERVER_H
 #define ROCKET_NET_TCP_SERVER_H
 
+#include "event_loop.h"
 #include "rocket/net/io_thread_group.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/use_awaitable.hpp>
+#include <etcd/Value.hpp>
 #include <memory>
 #include <set>
 
@@ -43,7 +45,7 @@ private:
 
   tcp::endpoint m_local_addr;
 
-  asio::io_context m_main_io_context;
+  EventLoop m_main_event_loop;
 
   std::unique_ptr<IOThreadGroup> m_io_thread_group; // subReactor 组
 

@@ -112,6 +112,7 @@ std::vector<string> EtcdRegistry::loadByKey(const string &service_name) {
 				std::unique_lock<std::mutex> lk(m_bk_mutex);
 				(*m_services_bk)[service_name] = vec;
         return vec;
+				
       } else {
         ERRORLOG("etcd service %s not found", service_name.c_str());
       }

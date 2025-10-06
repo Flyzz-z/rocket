@@ -4,13 +4,14 @@
 #include <assert.h>
 #include <thread>
 #include "rocket/net/io_thread.h"
+#include "event_loop.h"
 #include "rocket/common/log.h"
 #include "rocket/common/util.h"
 
 
 namespace rocket {
 
-IOThread::IOThread(): m_io_context(1),m_init_semaphore(0),m_start_semaphore(0) {  
+IOThread::IOThread(): m_init_semaphore(0),m_start_semaphore(0) {  
 
   m_thread = std::thread(Main, this);
   m_init_semaphore.acquire();
@@ -19,12 +20,12 @@ IOThread::IOThread(): m_io_context(1),m_init_semaphore(0),m_start_semaphore(0) {
 }
   
 IOThread::~IOThread() {
-  m_io_context.stop();
+  m_event_loop.stop();
   m_thread.join();
 }
 
-asio::io_context* IOThread::getIOContext() {
-  return &m_io_context;
+EventLoop* IOThread::getEventLoop() {
+  return &m_event_loop;
 }
 
 /*
@@ -42,8 +43,8 @@ void* IOThread::Main(void* arg) {
 
   io_thread->m_start_semaphore.acquire();
   DEBUGLOG("IOThread %d start loop ", io_thread->m_thread_id);
-	auto work_guard = asio::make_work_guard(io_thread->m_io_context);
-  io_thread->m_io_context.run();
+	auto work_guard = asio::make_work_guard(io_thread->m_event_loop.getIOContext());
+  io_thread->m_event_loop.run();
 
   DEBUGLOG("IOThread %d end loop ", io_thread->m_thread_id);
 
@@ -64,7 +65,7 @@ void IOThread::join() {
 }
 
 void IOThread::stop() {
-  m_io_context.stop();
+  m_event_loop.stop();
 }
 
 }

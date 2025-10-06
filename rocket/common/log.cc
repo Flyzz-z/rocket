@@ -210,6 +210,7 @@ void *AsyncLogger::Loop(void *arg) {
       return NULL;
     }
 
+		// 每次取一组元素打印
     std::vector<std::string> tmp;
     tmp.swap(logger->m_buffer.front());
     logger->m_buffer.pop();

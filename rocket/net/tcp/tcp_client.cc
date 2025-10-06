@@ -1,4 +1,5 @@
 #include "rocket/net/tcp/tcp_client.h"
+#include "event_loop.h"
 #include "rocket/common/log.h"
 #include "tcp_connection.h"
 #include <asio/awaitable.hpp>
@@ -13,24 +14,25 @@ namespace rocket {
 TcpClient::TcpClient(tcp::endpoint peer_addr) : m_peer_addr(peer_addr) {
   m_io_thread_singleton = IOThreadSingleton::GetInstance();
   m_io_thread_singleton->start();
-  m_io_context = m_io_thread_singleton->getIOContext();
-  // m_connection = std::make_shared<TcpConnection>(m_io_context,
-  // tcp::socket(*m_io_context,peer_addr),128, TcpConnectionByClient);
+  m_event_loop = m_io_thread_singleton->getEventLoop();
 }
 
 TcpClient::~TcpClient() {}
 
+EventLoop* TcpClient::getEventLoop() { return m_event_loop; }
+
+
 // 异步的进行 conenct
 // 如果connect 成功，done 会被执行
 asio::awaitable<void> TcpClient::connect() {
-
+	auto io_context = m_event_loop->getIOContext();
   try {
-    tcp::socket socket(*m_io_context);
+    tcp::socket socket(*io_context);
     co_await socket.async_connect(m_peer_addr, asio::use_awaitable);
     m_local_addr = socket.local_endpoint();
     m_peer_addr = socket.remote_endpoint();
     m_connection = std::make_shared<TcpConnection>(
-        m_io_context, std::move(socket), 128, TcpConnectionByClient);
+        io_context, std::move(socket), 128, TcpConnectionByClient);
     m_connection->start();
   } catch (std::exception &e) {
 		//TODO 异常了要怎么处理呢
@@ -71,29 +73,4 @@ std::string TcpClient::getConnectErrorInfo() { return m_connect_error_info; }
 tcp::endpoint TcpClient::getPeerAddr() { return m_peer_addr; }
 
 tcp::endpoint TcpClient::getLocalAddr() { return m_local_addr; }
-
-// void TcpClient::addTimerEvent(TimerEvent::s_ptr timer_event) {
-//   m_event_loop->addTimerEvent(timer_event);
-// }
-void TcpClient::addTimer(int interval_ms, bool isRepeat,
-                         std::function<void()> cb) {
-  asio::co_spawn(
-      *m_io_context,
-      [this, cb, interval_ms, isRepeat]() -> asio::awaitable<void> {
-        while (true) {
-          co_await asio::steady_timer(*m_io_context,
-                                      std::chrono::milliseconds(interval_ms))
-              .async_wait(asio::use_awaitable);
-          cb();
-          if (!isRepeat) {
-            break;
-          }
-        }
-      },
-      asio::detached);
-}
-
-void TcpClient::addCoFunc(std::function<asio::awaitable<void>()> cb) {
-  asio::co_spawn(*m_io_context, cb, asio::detached);
-}
 } // namespace rocket

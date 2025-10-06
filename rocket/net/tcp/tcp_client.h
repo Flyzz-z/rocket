@@ -4,6 +4,7 @@
 #include <asio/awaitable.hpp>
 #include <asio/io_context.hpp>
 #include <memory>
+#include "event_loop.h"
 #include "rocket/net/io_thread_singleton.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/net/coder/abstract_protocol.h"
@@ -20,6 +21,8 @@ class TcpClient {
   TcpClient(tcp::endpoint peer_addr);
 
   ~TcpClient();
+
+	EventLoop* getEventLoop();
 
   asio::awaitable<void> connect();
 
@@ -42,18 +45,12 @@ class TcpClient {
 
   tcp::endpoint getLocalAddr();
 
-  //void addTimerEvent(TimerEvent::s_ptr timer_event);
-	void addTimer(int interval_ms, bool isRepeat ,std::function<void()> cb);
-
-	void addCoFunc(std::function<asio::awaitable<void>()> cb);
-
-
  private:
   tcp::endpoint m_peer_addr;	
   tcp::endpoint m_local_addr;
 
 	IOThreadSingleton *m_io_thread_singleton;
-	asio::io_context *m_io_context;
+	EventLoop* m_event_loop;
 
   TcpConnection::s_ptr m_connection;
 

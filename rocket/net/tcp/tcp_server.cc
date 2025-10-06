@@ -1,4 +1,5 @@
 #include "rocket/net/tcp/tcp_server.h"
+#include "event_loop.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
 #include "rocket/net/io_thread_group.h"
@@ -14,7 +15,7 @@
 namespace rocket {
 
 TcpServer::TcpServer(tcp::endpoint local_addr)
-    : m_local_addr(local_addr), m_main_io_context(1) {
+    : m_local_addr(local_addr){
 
   init();
   INFOLOG("rocket TcpServer listen sucess on [%s:%u]",
@@ -22,27 +23,21 @@ TcpServer::TcpServer(tcp::endpoint local_addr)
 }
 
 TcpServer::~TcpServer() {
-  m_main_io_context.stop();
+  m_main_event_loop.stop();
   INFOLOG("tcp server stop");
 }
 
 void TcpServer::init() {
 
-  m_acceptor = std::make_unique<tcp::acceptor>(m_main_io_context, m_local_addr);
+	auto main_io_context = m_main_event_loop.getIOContext();
+  m_acceptor = std::make_unique<tcp::acceptor>(*main_io_context, m_local_addr);
 
   m_io_thread_group =
       std::make_unique<IOThreadGroup>(Config::GetGlobalConfig()->m_io_threads);
-  co_spawn(
-      m_main_io_context, [this]() -> auto { return this->listener(); },
-      detached);
-
-	addTimer(5000, true, [this]()->void{
+	m_main_event_loop.addCoroutine([this]() -> auto { return this->listener(); });
+	m_main_event_loop.addTimer(5000, true, [this]()->void{
 		ClearClientTimerFunc();
 	});
-  // TODO 处理clean
-  // m_clear_client_timer_event = std::make_shared<TimerEvent>(5000, true,
-  // std::bind(&TcpServer::ClearClientTimerFunc, this));
-  // m_main_event_loop->addTimerEvent(m_clear_client_timer_event);
 }
 
 /**
@@ -54,7 +49,8 @@ awaitable<void> TcpServer::listener() {
   try {
     for (;;) {
       auto socket = co_await m_acceptor->async_accept(use_awaitable);
-      auto run_io_context = m_io_thread_group->getIOThread()->getIOContext();
+			EventLoop* run_event_loop = m_io_thread_group->getIOThread()->getEventLoop();
+      auto run_io_context = run_event_loop->getIOContext();
       INFOLOG("TcpServer succ get client, address=%s",
               socket.remote_endpoint().address().to_string().c_str());
       std::shared_ptr<TcpConnection> connection =
@@ -73,7 +69,7 @@ void TcpServer::start() {
   // asio::signal_set signals(m_main_io_context, SIGINT, SIGTERM);
   // signals.async_wait(
   //     [&io_context = m_main_io_context](auto, auto) { io_context.stop(); });
-  m_main_io_context.run();
+  m_main_event_loop.run();
 }
 
 void TcpServer::ClearClientTimerFunc() {
@@ -89,21 +85,5 @@ void TcpServer::ClearClientTimerFunc() {
       it++;
     }
   }
-}
-
-void TcpServer::addTimer(int interval_ms, bool isRepeat,
-                         std::function<void()> cb) {
-  asio::co_spawn(
-      m_main_io_context,
-      [this, interval_ms, isRepeat, cb]() -> awaitable<void> {
-
-				asio::steady_timer timer(m_main_io_context);
-        do {
-					timer.expires_after(std::chrono::milliseconds(interval_ms));
-          co_await timer.async_wait(asio::use_awaitable);
-          cb();
-        } while (isRepeat);
-      },
-      asio::detached);
 }
 } // namespace rocket

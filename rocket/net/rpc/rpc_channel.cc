@@ -1,4 +1,5 @@
 #include "rocket/net/rpc/rpc_channel.h"
+#include "rocket/net/event_loop.h"
 #include "rocket/common/config.h"
 #include "rocket/common/error_code.h"
 #include "rocket/common/log.h"
@@ -137,7 +138,12 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   s_ptr channel = shared_from_this();
 
   // 使用协程实现超时控制
-  m_client->addTimer(
+	EventLoop *event_loop = m_client->getEventLoop();
+	if(!event_loop) {
+		ERRORLOG("RpcChannel::CallMethod event_loop nullptr");
+	}
+
+  event_loop->addTimer(
       my_controller->GetTimeout(), false, [my_controller, channel]() mutable {
         INFOLOG("%s | call rpc timeout arrive",
                 my_controller->GetMsgId().c_str());
@@ -155,7 +161,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         channel.reset();
       });
 
-  m_client->addCoFunc([this, req_protocol, my_controller,
+  event_loop->addCoroutine([this, req_protocol, my_controller,
                        channel]() mutable -> asio::awaitable<void> {
     co_await m_client->connect();
 

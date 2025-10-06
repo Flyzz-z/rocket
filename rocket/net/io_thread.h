@@ -1,7 +1,7 @@
 #ifndef ROCKET_NET_IO_THREAD_H
 #define ROCKET_NET_IO_THREAD_H
 
-#include <asio/io_context.hpp>
+#include "rocket/net/event_loop.h"
 #include <thread>
 #include <semaphore>
 
@@ -16,7 +16,7 @@ class IOThread {
   
   ~IOThread();
 
-  asio::io_context* getIOContext();
+  EventLoop* getEventLoop();
 
   void start();
 
@@ -32,7 +32,7 @@ class IOThread {
   pid_t m_thread_id {-1};    // 线程号
   std::thread m_thread;   // 线程句柄
 
-  asio::io_context m_io_context;
+  EventLoop m_event_loop;
 
   std::binary_semaphore m_init_semaphore;
 
