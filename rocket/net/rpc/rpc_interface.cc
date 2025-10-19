@@ -7,7 +7,7 @@
 namespace rocket {
 
 RpcInterface::RpcInterface(const google::protobuf::Message* req, google::protobuf::Message* rsp, RpcClosure* done, RpcController* controller)
-  : m_req_base(req), m_rsp_base(rsp), m_done(done) , m_controller(controller) {
+  : req_base_(req), rsp_base_(rsp), done_(done) , controller_(controller) {
     INFOLOG("RpcInterface");
 }
 
@@ -24,8 +24,8 @@ void RpcInterface::reply() {
   // reply to client
   // you should call is when you wan to set response back
   // it means this rpc method done 
-  if (m_done) {
-    m_done->Run();
+  if (done_) {
+    done_->Run();
   }
 
 }
@@ -36,24 +36,24 @@ std::shared_ptr<RpcClosure> RpcInterface::newRpcClosure(std::function<void()>& c
 
 
 void RpcInterface::destroy() {
-  if (m_req_base) {
-    delete m_req_base;
-    m_req_base = NULL;
+  if (req_base_) {
+    delete req_base_;
+    req_base_ = NULL;
   }
 
-  if (m_rsp_base) {
-    delete m_rsp_base;
-    m_rsp_base = NULL;
+  if (rsp_base_) {
+    delete rsp_base_;
+    rsp_base_ = NULL;
   }
 
-  if (m_done) {
-    delete m_done;
-    m_done = NULL;
+  if (done_) {
+    delete done_;
+    done_ = NULL;
   }
 
-  if (m_controller) {
-    delete m_controller;
-    m_controller = NULL;
+  if (controller_) {
+    delete controller_;
+    controller_ = NULL;
   }
 
 }

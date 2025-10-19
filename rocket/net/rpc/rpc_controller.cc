@@ -4,36 +4,36 @@
 namespace rocket {
 
 void RpcController::Reset() {
-  m_error_code = 0;
-  m_error_info = "";
-  m_msg_id = "";
-  m_is_failed = false;
-  m_is_cancled = false;
-  m_is_finished = false;
-  m_timeout = 1000;   // ms
+  error_code_ = 0;
+  error_info_ = "";
+  msg_id_ = "";
+  is_failed_ = false;
+  is_cancled_ = false;
+  is_finished_ = false;
+  timeout_ = 1000;   // ms
 }
 
 bool RpcController::Failed() const {
-  return m_is_failed;
+  return is_failed_;
 }
 
 std::string RpcController::ErrorText() const {
-  return m_error_info;
+  return error_info_;
 }
 
 void RpcController::StartCancel() {
-  m_is_cancled = true;
-  m_is_failed = true;
+  is_cancled_ = true;
+  is_failed_ = true;
   SetFinished(true);
 }
 
 void RpcController::SetFailed(const std::string& reason) {
-  m_error_info = reason;
-  m_is_failed = true;
+  error_info_ = reason;
+  is_failed_ = true;
 }
 
 bool RpcController::IsCanceled() const {
-  return m_is_cancled;
+  return is_cancled_;
 }
 
 void RpcController::NotifyOnCancel(google::protobuf::Closure* callback) {
@@ -42,57 +42,57 @@ void RpcController::NotifyOnCancel(google::protobuf::Closure* callback) {
 
 
 void RpcController::SetError(int32_t error_code, const std::string error_info) {
-  m_error_code = error_code;
-  m_error_info = error_info;
-  m_is_failed = true;
+  error_code_ = error_code;
+  error_info_ = error_info;
+  is_failed_ = true;
 }
 
 int32_t RpcController::GetErrorCode() {
-  return m_error_code;
+  return error_code_;
 }
 
 std::string RpcController::GetErrorInfo() {
-  return m_error_info;
+  return error_info_;
 }
 
 void RpcController::SetMsgId(const std::string& msg_id) {
-  m_msg_id = msg_id;
+  msg_id_ = msg_id;
 }
 
 std::string RpcController::GetMsgId() {
-  return m_msg_id;
+  return msg_id_;
 }
 
 void RpcController::SetLocalAddr(tcp::endpoint addr) {
-  m_local_addr = addr;
+  local_addr_ = addr;
 }
 
 void RpcController::SetPeerAddr(tcp::endpoint addr) {
-  m_peer_addr = addr;
+  peer_addr_ = addr;
 }
 
 tcp::endpoint RpcController::GetLocalAddr() {
-  return m_local_addr;
+  return local_addr_;
 }
 
 tcp::endpoint RpcController::GetPeerAddr() {
-  return m_peer_addr;
+  return peer_addr_;
 }
 
 void RpcController::SetTimeout(int timeout) {
-  m_timeout = timeout;
+  timeout_ = timeout;
 }
 
 int RpcController::GetTimeout() {
-  return m_timeout;
+  return timeout_;
 }
 
 bool RpcController::Finished() {
-  return m_is_finished;
+  return is_finished_;
 }
 
 void RpcController::SetFinished(bool value) {
-  m_is_finished = value;
+  is_finished_ = value;
 }
 
 }

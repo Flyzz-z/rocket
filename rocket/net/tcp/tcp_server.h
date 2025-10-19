@@ -37,21 +37,18 @@ private:
   // 清除 closed 的连接
   void ClearClientTimerFunc();
 
-  // TODO 包装io_context，提供统一接口
-  void addTimer(int interval_ms, bool isRepeat, std::function<void()> cb);
-
 private:
-  std::unique_ptr<tcp::acceptor> m_acceptor;
+  std::unique_ptr<tcp::acceptor> acceptor_;
 
-  tcp::endpoint m_local_addr;
+  tcp::endpoint local_addr_;
 
-  EventLoop m_main_event_loop;
+  EventLoop main_event_loop_;
 
-  std::unique_ptr<IOThreadGroup> m_io_thread_group; // subReactor 组
+  std::unique_ptr<IOThreadGroup> io_thread_group_; // subReactor 组
 
-  int m_client_counts{0};
+  int client_counts_{0};
 
-  std::set<TcpConnection::s_ptr> m_clients;
+  std::set<TcpConnection::s_ptr> clients_;
 };
 
 } // namespace rocket

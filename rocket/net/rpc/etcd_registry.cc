@@ -9,7 +9,7 @@
 #include <string>
 
 namespace rocket {
-EtcdRegistry::EtcdRegistry() : m_services_ac(std::make_shared<service_map>()),m_services_bk(std::make_shared<service_map>()) {}
+EtcdRegistry::EtcdRegistry() : services_ac_(std::make_shared<service_map>()),services_bk_(std::make_shared<service_map>()) {}
 
 EtcdRegistry::~EtcdRegistry() {}
 
@@ -18,15 +18,15 @@ void EtcdRegistry::init(const std::string &ip, int port,
                         const std::string &password) {
 	auto instance = EtcdRegistry::GetInstance();
   std::string addr = ip + ":" + std::to_string(port);
-	instance->m_etcd_client =  std::make_unique<etcd::Client>(addr, username, password);
-  instance->m_ip = ip;
-  instance->m_port = port;
+	instance->etcd_client_ =  std::make_unique<etcd::Client>(addr, username, password);
+  instance->ip_ = ip;
+  instance->port_ = port;
 }
 
 void EtcdRegistry::initFromConfig() {
   auto config = Config::GetGlobalConfig();
-  init(config->m_etcd_config.ip, config->m_etcd_config.port,
-       config->m_etcd_config.username, config->m_etcd_config.password);
+  init(config->etcd_config_.ip, config->etcd_config_.port,
+       config->etcd_config_.username, config->etcd_config_.password);
 	registerServicesFromConfig();
 }
 
@@ -42,10 +42,10 @@ bool EtcdRegistry::registerService(const std::string &service_name,
 		// 创建租约,自动续约
 		DEBUGLOG("create lease");
 		std::shared_ptr<etcd::KeepAlive> keep_alive =
-      m_etcd_client->leasekeepalive(30).get();
-		m_keep_alives[key] = keep_alive;
+      etcd_client_->leasekeepalive(30).get();
+		keep_alives_[key] = keep_alive;
 
-    etcd::Response res = m_etcd_client->set(key, val,keep_alive->Lease()).get();
+    etcd::Response res = etcd_client_->set(key, val,keep_alive->Lease()).get();
     if (res.is_ok()) {
 			DEBUGLOG("register service %s success")
       return true;
@@ -63,9 +63,9 @@ bool EtcdRegistry::registerService(const std::string &service_name,
 // TODO 待添加处理租约
 void EtcdRegistry::unregisterService(const string &service_name) {
   try {
-    string addr = m_ip + ":" + std::to_string(m_port);
+    string addr = ip_ + ":" + std::to_string(port_);
     string key = "/rocket/service/" + service_name + "/" + addr;
-    etcd::Response res = m_etcd_client->rm(key).get();
+    etcd::Response res = etcd_client_->rm(key).get();
 
   } catch (const std::exception &e) {
     ERRORLOG("unregister service %s failed, why", service_name.c_str(),
@@ -81,15 +81,15 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
 
 
 	// 优先缓存获取
-	auto services_map = std::atomic_load(&m_services_ac);
+	auto services_map = std::atomic_load(&services_ac_);
 	if(services_map->count(service_name)) {
 		return services_map->at(service_name);
 	}
 	std::vector<std::string> vec = loadByKey(service_name);
 	// 更新缓存
 	if(vec.size() > 0) {
-		std::atomic_exchange(&m_services_ac, m_services_bk);
-		m_services_bk = std::make_shared<service_map>(*(std::atomic_load(&m_services_ac)));
+		std::atomic_exchange(&services_ac_, services_bk_);
+		services_bk_ = std::make_shared<service_map>(*(std::atomic_load(&services_ac_)));
 	}
 
 	DEBUGLOG("discoverService service_name: %s, vec.size(): %d",service_name.c_str(), vec.size());
@@ -99,7 +99,7 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
 std::vector<string> EtcdRegistry::loadByKey(const string &service_name) {
   try {
     std::string key = "/rocket/service/" + service_name;
-    etcd::Response res = m_etcd_client->ls(key).get();
+    etcd::Response res = etcd_client_->ls(key).get();
     if (res.is_ok()) {
       if (res.keys().size() > 0) {
         DEBUGLOG("etcd get service %s success", service_name.c_str());
@@ -109,8 +109,8 @@ std::vector<string> EtcdRegistry::loadByKey(const string &service_name) {
 				}
 
 				// 设置bk缓存
-				std::unique_lock<std::mutex> lk(m_bk_mutex);
-				(*m_services_bk)[service_name] = vec;
+				std::unique_lock<std::mutex> lk(bk_mutex_);
+				(*services_bk_)[service_name] = vec;
         return vec;
 				
       } else {
@@ -132,7 +132,7 @@ void EtcdRegistry::registerServicesFromConfig() {
 
   auto config = Config::GetGlobalConfig();
 	auto instance = EtcdRegistry::GetInstance();
-  for (const auto &[service_name, stub] : config->m_rpc_stubs) {
+  for (const auto &[service_name, stub] : config->rpc_stubs_) {
     instance->registerService(service_name, stub.addr.address().to_string(),
                     stub.addr.port());
   }

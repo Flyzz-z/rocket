@@ -80,30 +80,30 @@ class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
 	awaitable<void> writer();
 
 
- 	asio::io_context *m_io_context;
+ 	asio::io_context *io_context_;
 
-  tcp::socket m_socket;
+  tcp::socket socket_;
 
-  tcp::endpoint m_local_addr;
-  tcp::endpoint m_peer_addr;
+  tcp::endpoint local_addr_;
+  tcp::endpoint peer_addr_;
 
-  asio::steady_timer m_timer;
+  asio::steady_timer timer_;
 
-  TcpBuffer m_in_buffer;
-  TcpBuffer m_out_buffer;
+  TcpBuffer in_buffer_;
+  TcpBuffer out_buffer_;
 
-  AbstractCoder* m_coder {NULL};
+  AbstractCoder* coder_ {NULL};
 
-  TcpState m_state;
+  TcpState state_;
 
 
-  TcpConnectionType m_connection_type {TcpConnectionByServer};
+  TcpConnectionType connection_type_ {TcpConnectionByServer};
 
   // std::pair<AbstractProtocol::s_ptr, std::function<void(AbstractProtocol::s_ptr)>>
-  std::vector<std::pair<AbstractProtocol::s_ptr, std::function<void(AbstractProtocol::s_ptr)>>> m_write_dones;
+  std::vector<std::pair<AbstractProtocol::s_ptr, std::function<void(AbstractProtocol::s_ptr)>>> write_dones_;
 
   // key 为 msg_id
-  std::map<std::string, std::function<void(AbstractProtocol::s_ptr)>> m_read_dones;
+  std::map<std::string, std::function<void(AbstractProtocol::s_ptr)>> read_dones_;
   
 };
 

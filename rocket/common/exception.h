@@ -9,7 +9,7 @@ namespace rocket {
 class RocketException : public std::exception {
  public:
 
-  RocketException(int error_code, const std::string& error_info) : m_error_code(error_code), m_error_info(error_info) {}
+  RocketException(int error_code, const std::string& error_info) : error_code_(error_code), error_info_(error_info) {}
 
   // 异常处理
   // 当捕获到 RocketException 及其子类对象的异常时，会执行该函数
@@ -18,17 +18,17 @@ class RocketException : public std::exception {
   virtual ~RocketException() {};
 
   int errorCode() {
-    return m_error_code;
+    return error_code_;
   }
 
   std::string errorInfo() {
-    return m_error_info;
+    return error_info_;
   }
 
  protected:
-  int m_error_code {0};
+  int error_code_ {0};
 
-  std::string m_error_info;
+  std::string error_info_;
 
 };
 

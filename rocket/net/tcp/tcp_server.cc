@@ -15,27 +15,27 @@
 namespace rocket {
 
 TcpServer::TcpServer(tcp::endpoint local_addr)
-    : m_local_addr(local_addr){
+    : local_addr_(local_addr){
 
   init();
   INFOLOG("rocket TcpServer listen sucess on [%s:%u]",
-          m_local_addr.address().to_string().c_str(), m_local_addr.port());
+          local_addr_.address().to_string().c_str(), local_addr_.port());
 }
 
 TcpServer::~TcpServer() {
-  m_main_event_loop.stop();
+  main_event_loop_.stop();
   INFOLOG("tcp server stop");
 }
 
 void TcpServer::init() {
 
-	auto main_io_context = m_main_event_loop.getIOContext();
-  m_acceptor = std::make_unique<tcp::acceptor>(*main_io_context, m_local_addr);
+	auto main_io_context = main_event_loop_.getIOContext();
+  acceptor_ = std::make_unique<tcp::acceptor>(*main_io_context, local_addr_);
 
-  m_io_thread_group =
-      std::make_unique<IOThreadGroup>(Config::GetGlobalConfig()->m_io_threads);
-	m_main_event_loop.addCoroutine([this]() -> auto { return this->listener(); });
-	m_main_event_loop.addTimer(5000, true, [this]()->void{
+  io_thread_group_ =
+      std::make_unique<IOThreadGroup>(Config::GetGlobalConfig()->io_threads_);
+	main_event_loop_.addCoroutine([this]() -> auto { return this->listener(); });
+	main_event_loop_.addTimer(5000, true, [this]()->void{
 		ClearClientTimerFunc();
 	});
 }
@@ -48,8 +48,8 @@ void TcpServer::init() {
 awaitable<void> TcpServer::listener() {
   try {
     for (;;) {
-      auto socket = co_await m_acceptor->async_accept(use_awaitable);
-			EventLoop* run_event_loop = m_io_thread_group->getIOThread()->getEventLoop();
+      auto socket = co_await acceptor_->async_accept(use_awaitable);
+			EventLoop* run_event_loop = io_thread_group_->getIOThread()->getEventLoop();
       auto run_io_context = run_event_loop->getIOContext();
       INFOLOG("TcpServer succ get client, address=%s",
               socket.remote_endpoint().address().to_string().c_str());
@@ -57,7 +57,7 @@ awaitable<void> TcpServer::listener() {
           std::make_shared<TcpConnection>(run_io_context, std::move(socket),
                                           128);
       connection->start();
-      m_clients.insert(connection);
+      clients_.insert(connection);
     }
   } catch (std::exception &e) {
     ERRORLOG("TcpServer::listener() exception: %s", e.what());
@@ -65,22 +65,22 @@ awaitable<void> TcpServer::listener() {
 }
 
 void TcpServer::start() {
-  m_io_thread_group->start();
-  // asio::signal_set signals(m_main_io_context, SIGINT, SIGTERM);
+  io_thread_group_->start();
+  // asio::signal_set signals(main_io_context_, SIGINT, SIGTERM);
   // signals.async_wait(
-  //     [&io_context = m_main_io_context](auto, auto) { io_context.stop(); });
-  m_main_event_loop.run();
+  //     [&io_context = main_io_context_](auto, auto) { io_context.stop(); });
+  main_event_loop_.run();
 }
 
 void TcpServer::ClearClientTimerFunc() {
-  auto it = m_clients.begin();
-  for (it = m_clients.begin(); it != m_clients.end();) {
+  auto it = clients_.begin();
+  for (it = clients_.begin(); it != clients_.end();) {
     // TcpConnection::ptr s_conn = i.second;
     if ((*it) != nullptr && (*it).use_count() > 0 &&
         !((*it)->is_open())) {
       // need to delete TcpConnection
       DEBUGLOG("TcpConection will delete, because it is closed");
-      it = m_clients.erase(it);
+      it = clients_.erase(it);
     } else {
       it++;
     }

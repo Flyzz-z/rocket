@@ -35,20 +35,20 @@ public:
   static void SetGlobalConfig(const char *xmlfile);
 
 public:
-  std::string m_log_level;
-  std::string m_log_file_name;
-  std::string m_log_file_path;
-  int m_log_max_file_size{0};
-  int m_log_sync_inteval{0}; // 日志同步间隔，ms
+  std::string log_level_;
+  std::string log_file_name_;
+  std::string log_file_path_;
+  int log_max_file_size_{0};
+  int log_sync_inteval_{0}; // 日志同步间隔，ms
 
-  int m_port{0};
-  int m_io_threads{0};
+  int port_{0};
+  int io_threads_{0};
 
-  TiXmlDocument *m_xml_document{NULL};
+  TiXmlDocument *xml_document_{NULL};
 
-  std::map<std::string, RpcStub> m_rpc_stubs;
+  std::map<std::string, RpcStub> rpc_stubs_;
 
-	EtcdConfig m_etcd_config;
+	EtcdConfig etcd_config_;
 };
 
 } // namespace rocket

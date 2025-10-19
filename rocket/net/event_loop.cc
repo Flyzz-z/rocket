@@ -5,14 +5,14 @@
 
 namespace rocket {
 
-EventLoop::EventLoop() : m_io_context(1) {}
+EventLoop::EventLoop() : io_context_(1) {}
 
 EventLoop::~EventLoop() { stop(); }
 
-void EventLoop::run() { m_io_context.run(); }
+void EventLoop::run() { io_context_.run(); }
 
-void EventLoop::stop() { m_io_context.stop(); }
+void EventLoop::stop() { io_context_.stop(); }
 
-asio::io_context *EventLoop::getIOContext() { return &m_io_context; }
+asio::io_context *EventLoop::getIOContext() { return &io_context_; }
 
 } // namespace rocket

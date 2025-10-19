@@ -16,7 +16,7 @@ RunTime* RunTime::GetRunTime() {
 
 
 RpcInterface* RunTime::getRpcInterface() {
-  return m_rpc_interface;
+  return rpc_interface_;
 }
 
 }

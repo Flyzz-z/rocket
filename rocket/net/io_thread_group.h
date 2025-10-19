@@ -24,10 +24,10 @@ class IOThreadGroup {
 
  private:
 
-  int m_size {0};
-  std::vector<IOThread*> m_io_thread_groups;
+  int size_ {0};
+  std::vector<IOThread*> io_thread_groups_;
 	
-  int m_index {0};
+  int index_ {0};
 
 };
 

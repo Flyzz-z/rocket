@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
   asio::ip::address addr = asio::ip::address::from_string("192.168.124.128");
   asio::ip::tcp::endpoint endpoint =
-      asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->m_port);
+      asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->port_);
 
   rocket::TcpServer tcp_server(endpoint);
 

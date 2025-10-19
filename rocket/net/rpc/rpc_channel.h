@@ -73,18 +73,18 @@ private:
   void callBack();
 
 private:
-  controller_s_ptr m_controller{nullptr};
-  message_s_ptr m_request{nullptr};
-  message_s_ptr m_response{nullptr};
-  closure_s_ptr m_closure{nullptr};
+  controller_s_ptr controller_{nullptr};
+  message_s_ptr request_{nullptr};
+  message_s_ptr response_{nullptr};
+  closure_s_ptr closure_{nullptr};
 
-  bool m_is_init{false};
+  bool is_init_{false};
 
-  std::vector<tcp::endpoint> m_peer_addrs;
-	int m_addr_index{0};
-  tcp::endpoint m_local_addr;
-  TcpClient::s_ptr m_client;
-  int m_client_id;
+  std::vector<tcp::endpoint> peer_addrs_;
+	int addr_index_{0};
+  tcp::endpoint local_addr_;
+  TcpClient::s_ptr client_;
+  int client_id_;
 	
 };
 

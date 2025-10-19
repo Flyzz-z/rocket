@@ -31,24 +31,24 @@ public:
 	//TODO 添加定期从etcd更新服务信息
 
 private:
-  std::string m_name;
-  std::string m_ip;
-  int m_port;
-  std::string m_username;
-  std::string m_password;
-  std::unique_ptr<etcd::Client> m_etcd_client;
+  std::string name_;
+  std::string ip_;
+  int port_;
+  std::string username_;
+  std::string password_;
+  std::unique_ptr<etcd::Client> etcd_client_;
   std::unordered_map<std::string, std::shared_ptr<etcd::KeepAlive>>
-      m_keep_alives;
+      keep_alives_;
 
 	/*
 		ac使用atomic操作
 		bk使用lock
 	 */
   using service_map = std::unordered_map<std::string, std::vector<std::string>>;
- 	std::shared_ptr<service_map> m_services_ac;
-  std::shared_ptr<service_map> m_services_bk;
+ 	std::shared_ptr<service_map> services_ac_;
+  std::shared_ptr<service_map> services_bk_;
 	// 写bk的锁
-	std::mutex m_bk_mutex;
+	std::mutex bk_mutex_;
 
 	
 };

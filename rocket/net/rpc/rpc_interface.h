@@ -38,13 +38,13 @@ class RpcInterface : public std::enable_shared_from_this<RpcInterface> {
 
  protected:
 
-  const google::protobuf::Message* m_req_base {NULL};
+  const google::protobuf::Message* req_base_ {NULL};
 
-  google::protobuf::Message* m_rsp_base {NULL};
+  google::protobuf::Message* rsp_base_ {NULL};
 
-  RpcClosure* m_done {NULL};        // callback
+  RpcClosure* done_ {NULL};        // callback
 
-  RpcController* m_controller {NULL};
+  RpcController* controller_ {NULL};
 
 
 };

@@ -11,38 +11,38 @@
 // TODO 完善client
 namespace rocket {
 
-TcpClient::TcpClient(tcp::endpoint peer_addr) : m_peer_addr(peer_addr) {
-  m_io_thread_singleton = IOThreadSingleton::GetInstance();
-  m_io_thread_singleton->start();
-  m_event_loop = m_io_thread_singleton->getEventLoop();
+TcpClient::TcpClient(tcp::endpoint peer_addr) : peer_addr_(peer_addr) {
+  io_thread_singleton_ = IOThreadSingleton::GetInstance();
+  io_thread_singleton_->start();
+  event_loop_ = io_thread_singleton_->getEventLoop();
 }
 
 TcpClient::~TcpClient() {}
 
-EventLoop* TcpClient::getEventLoop() { return m_event_loop; }
+EventLoop* TcpClient::getEventLoop() { return event_loop_; }
 
 
 // 异步的进行 conenct
 // 如果connect 成功，done 会被执行
 asio::awaitable<void> TcpClient::connect() {
-	auto io_context = m_event_loop->getIOContext();
+	auto io_context = event_loop_->getIOContext();
   try {
     tcp::socket socket(*io_context);
-    co_await socket.async_connect(m_peer_addr, asio::use_awaitable);
-    m_local_addr = socket.local_endpoint();
-    m_peer_addr = socket.remote_endpoint();
-    m_connection = std::make_shared<TcpConnection>(
+    co_await socket.async_connect(peer_addr_, asio::use_awaitable);
+    local_addr_ = socket.local_endpoint();
+    peer_addr_ = socket.remote_endpoint();
+    connection_ = std::make_shared<TcpConnection>(
         io_context, std::move(socket), 128, TcpConnectionByClient);
-    m_connection->start();
+    connection_->start();
   } catch (std::exception &e) {
 		//TODO 异常了要怎么处理呢
     INFOLOG("tcp connect error %s", e.what());
-    // m_connect_error_code = ErrorCode::TCP_CONNECT_ERROR;
-    m_connect_error_info = std::string("tcp connect exception: ") + e.what();
+    // connect_error_code_ = ErrorCode::TCP_CONNECT_ERROR;
+    connect_error_info_ = std::string("tcp connect exception: ") + e.what();
   }
 }
 
-void TcpClient::stop() { m_io_thread_singleton->stop(); }
+void TcpClient::stop() { io_thread_singleton_->stop(); }
 
 // 异步的发送 message
 // 如果发送 message 成功，会调用 done 函数， 函数的入参就是 message 对象
@@ -51,8 +51,8 @@ void TcpClient::writeMessage(
     std::function<void(AbstractProtocol::s_ptr)> done) {
   // 1. 把 message 对象写入到 Connection 的 buffer, done 也写入
   // 2. 启动 connection 可写事件
-  m_connection->pushSendMessage(message, done);
-  m_connection->listenWrite();
+  connection_->pushSendMessage(message, done);
+  connection_->listenWrite();
 }
 
 // 异步的读取 message
@@ -62,15 +62,15 @@ void TcpClient::readMessage(const std::string &msg_id,
   // 1. 监听可读事件
   // 2. 从 buffer 里 decode 得到 message 对象, 判断是否 msg_id
   // 相等，相等则读成功，执行其回调
-  m_connection->pushReadMessage(msg_id, done);
-  m_connection->listenRead();
+  connection_->pushReadMessage(msg_id, done);
+  connection_->listenRead();
 }
 
-int TcpClient::getConnectErrorCode() { return m_connect_error_code; }
+int TcpClient::getConnectErrorCode() { return connect_error_code_; }
 
-std::string TcpClient::getConnectErrorInfo() { return m_connect_error_info; }
+std::string TcpClient::getConnectErrorInfo() { return connect_error_info_; }
 
-tcp::endpoint TcpClient::getPeerAddr() { return m_peer_addr; }
+tcp::endpoint TcpClient::getPeerAddr() { return peer_addr_; }
 
-tcp::endpoint TcpClient::getLocalAddr() { return m_local_addr; }
+tcp::endpoint TcpClient::getLocalAddr() { return local_addr_; }
 } // namespace rocket

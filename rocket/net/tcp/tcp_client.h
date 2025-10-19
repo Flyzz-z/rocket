@@ -46,16 +46,16 @@ class TcpClient {
   tcp::endpoint getLocalAddr();
 
  private:
-  tcp::endpoint m_peer_addr;	
-  tcp::endpoint m_local_addr;
+  tcp::endpoint peer_addr_;	
+  tcp::endpoint local_addr_;
 
-	IOThreadSingleton *m_io_thread_singleton;
-	EventLoop* m_event_loop;
+	IOThreadSingleton *io_thread_singleton_;
+	EventLoop* event_loop_;
 
-  TcpConnection::s_ptr m_connection;
+  TcpConnection::s_ptr connection_;
 
-  int m_connect_error_code {0};
-  std::string m_connect_error_info;
+  int connect_error_code_ {0};
+  std::string connect_error_info_;
 
 };  
 }

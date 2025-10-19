@@ -24,7 +24,7 @@ namespace rocket {
 
 // TODO 思考如何利用移动语义
 RpcChannel::RpcChannel(std::vector<tcp::endpoint> peer_addrs)
-    : m_peer_addrs(peer_addrs) {
+    : peer_addrs_(peer_addrs) {
   INFOLOG("RpcChannel");
 }
 
@@ -37,8 +37,8 @@ void RpcChannel::callBack() {
     return;
   }
 
-  if (m_closure) {
-    m_closure->Run();
+  if (closure_) {
+    closure_->Run();
     if (my_controller) {
       my_controller->SetFinished(true);
     }
@@ -68,17 +68,17 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   }
 
   // index归0
-  if (m_addr_index >= m_peer_addrs.size()) {
-    m_addr_index = 0;
+  if (addr_index_ >= peer_addrs_.size()) {
+    addr_index_ = 0;
   }
 
   tcp::endpoint peer_addr;
-  for (int i = 0; i < m_peer_addrs.size(); i++) {
-    if (m_peer_addrs[m_addr_index].address().is_unspecified()) {
-			m_addr_index = (m_addr_index + 1) % m_peer_addrs.size();
+  for (int i = 0; i < peer_addrs_.size(); i++) {
+    if (peer_addrs_[addr_index_].address().is_unspecified()) {
+			addr_index_ = (addr_index_ + 1) % peer_addrs_.size();
       continue;
     } else {
-			peer_addr = m_peer_addrs[m_addr_index];
+			peer_addr = peer_addrs_[addr_index_];
 			break;
 		}
   }
@@ -90,46 +90,46 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     return;
   }
 
-  m_client = std::make_shared<TcpClient>(peer_addr);
+  client_ = std::make_shared<TcpClient>(peer_addr);
 
   // 设置msg_id
   if (my_controller->GetMsgId().empty()) {
     // 先从 runtime 里面取, 取不到再生成一个
     // 这样的目的是为了实现 msg_id 的透传，假设服务 A 调用了 B，那么同一个 msgid
     // 可以在服务 A 和 B 之间串起来，方便日志追踪
-    std::string msg_id = RunTime::GetRunTime()->m_msgid;
+    std::string msg_id = RunTime::GetRunTime()->msgid_;
     if (!msg_id.empty()) {
-      req_protocol->m_msg_id = msg_id;
+      req_protocol->msg_id_ = msg_id;
       my_controller->SetMsgId(msg_id);
     } else {
-      req_protocol->m_msg_id = MsgIDUtil::GenMsgID();
-      my_controller->SetMsgId(req_protocol->m_msg_id);
+      req_protocol->msg_id_ = MsgIDUtil::GenMsgID();
+      my_controller->SetMsgId(req_protocol->msg_id_);
     }
 
   } else {
     // 如果 controller 指定了 msgno, 直接使用
-    req_protocol->m_msg_id = my_controller->GetMsgId();
+    req_protocol->msg_id_ = my_controller->GetMsgId();
   }
 
   // 设置method_name
-  req_protocol->m_method_name = method->full_name();
-  INFOLOG("%s | call method name [%s]", req_protocol->m_msg_id.c_str(),
-          req_protocol->m_method_name.c_str());
+  req_protocol->method_name_ = method->full_name();
+  INFOLOG("%s | call method name [%s]", req_protocol->msg_id_.c_str(),
+          req_protocol->method_name_.c_str());
 
-  if (!m_is_init) {
+  if (!is_init_) {
     std::string err_info = "RpcChannel not call init()";
     my_controller->SetError(ERROR_RPC_CHANNEL_INIT, err_info);
-    ERRORLOG("%s | %s, RpcChannel not init ", req_protocol->m_msg_id.c_str(),
+    ERRORLOG("%s | %s, RpcChannel not init ", req_protocol->msg_id_.c_str(),
              err_info.c_str());
     callBack();
     return;
   }
 
   // requeset 的序列化
-  if (!request->SerializeToString(&(req_protocol->m_pb_data))) {
+  if (!request->SerializeToString(&(req_protocol->pb_data_))) {
     std::string err_info = "failde to serialize";
     my_controller->SetError(ERROR_FAILED_SERIALIZE, err_info);
-    ERRORLOG("%s | %s, origin requeset [%s] ", req_protocol->m_msg_id.c_str(),
+    ERRORLOG("%s | %s, origin requeset [%s] ", req_protocol->msg_id_.c_str(),
              err_info.c_str(), request->ShortDebugString().c_str());
     callBack();
     return;
@@ -138,7 +138,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   s_ptr channel = shared_from_this();
 
   // 使用协程实现超时控制
-	EventLoop *event_loop = m_client->getEventLoop();
+	EventLoop *event_loop = client_->getEventLoop();
 	if(!event_loop) {
 		ERRORLOG("RpcChannel::CallMethod event_loop nullptr");
 	}
@@ -163,14 +163,14 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
   event_loop->addCoroutine([this, req_protocol, my_controller,
                        channel]() mutable -> asio::awaitable<void> {
-    co_await m_client->connect();
+    co_await client_->connect();
 
     if (getTcpClient()->getConnectErrorCode() != 0) {
       my_controller->SetError(getTcpClient()->getConnectErrorCode(),
                               getTcpClient()->getConnectErrorInfo());
       ERRORLOG(
           "%s | connect error, error coode[%d], error info[%s], peer addr[%s]",
-          req_protocol->m_msg_id.c_str(), my_controller->GetErrorCode(),
+          req_protocol->msg_id_.c_str(), my_controller->GetErrorCode(),
           my_controller->GetErrorInfo().c_str(),
           getTcpClient()->getPeerAddr().address().to_string().c_str());
 
@@ -179,7 +179,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     }
 
     INFOLOG("%s | connect success, peer addr[%s], local addr[%s]",
-            req_protocol->m_msg_id.c_str(),
+            req_protocol->msg_id_.c_str(),
             getTcpClient()->getPeerAddr().address().to_string().c_str(),
 
             getTcpClient()->getLocalAddr().address().to_string().c_str());
@@ -189,50 +189,50 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         req_protocol, [req_protocol, this](AbstractProtocol::s_ptr) mutable {
           INFOLOG("%s | send rpc request success. call method name[%s], peer "
                   "addr[%s], local addr[%s]",
-                  req_protocol->m_msg_id.c_str(),
-                  req_protocol->m_method_name.c_str(),
+                  req_protocol->msg_id_.c_str(),
+                  req_protocol->method_name_.c_str(),
                   getTcpClient()->getPeerAddr().address().to_string().c_str(),
                   getTcpClient()->getLocalAddr().address().to_string().c_str());
         });
 
     DEBUGLOG("client make read message");
     getTcpClient()->readMessage(
-        req_protocol->m_msg_id,
+        req_protocol->msg_id_,
         [this, my_controller](AbstractProtocol::s_ptr msg) mutable {
           std::shared_ptr<rocket::TinyPBProtocol> rsp_protocol =
               std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg);
           INFOLOG("%s | success get rpc response, call method name[%s], peer "
                   "addr[%s], local addr[%s]",
-                  rsp_protocol->m_msg_id.c_str(),
-                  rsp_protocol->m_method_name.c_str(),
+                  rsp_protocol->msg_id_.c_str(),
+                  rsp_protocol->method_name_.c_str(),
                   getTcpClient()->getPeerAddr().address().to_string().c_str(),
                   getTcpClient()->getLocalAddr().address().to_string().c_str());
 
-          if (!(getResponse()->ParseFromString(rsp_protocol->m_pb_data))) {
-            ERRORLOG("%s | serialize error", rsp_protocol->m_msg_id.c_str());
+          if (!(getResponse()->ParseFromString(rsp_protocol->pb_data_))) {
+            ERRORLOG("%s | serialize error", rsp_protocol->msg_id_.c_str());
             my_controller->SetError(ERROR_FAILED_SERIALIZE, "serialize error");
             callBack();
             return;
           }
 
-          if (rsp_protocol->m_err_code != 0) {
+          if (rsp_protocol->err_code_ != 0) {
             ERRORLOG("%s | call rpc methood[%s] failed, error code[%d], "
                      "error info[%s]",
-                     rsp_protocol->m_msg_id.c_str(),
-                     rsp_protocol->m_method_name.c_str(),
-                     rsp_protocol->m_err_code,
-                     rsp_protocol->m_err_info.c_str());
+                     rsp_protocol->msg_id_.c_str(),
+                     rsp_protocol->method_name_.c_str(),
+                     rsp_protocol->err_code_,
+                     rsp_protocol->err_info_.c_str());
 
-            my_controller->SetError(rsp_protocol->m_err_code,
-                                    rsp_protocol->m_err_info);
+            my_controller->SetError(rsp_protocol->err_code_,
+                                    rsp_protocol->err_info_);
             callBack();
             return;
           }
 
           INFOLOG("%s | call rpc success, call method name[%s], peer addr[%s], "
                   "local addr[%s]",
-                  rsp_protocol->m_msg_id.c_str(),
-                  rsp_protocol->m_method_name.c_str(),
+                  rsp_protocol->msg_id_.c_str(),
+                  rsp_protocol->method_name_.c_str(),
                   getTcpClient()->getPeerAddr().address().to_string().c_str(),
                   getTcpClient()->getLocalAddr().address().to_string().c_str())
 
@@ -243,29 +243,29 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
 void RpcChannel::Init(controller_s_ptr controller, message_s_ptr req,
                       message_s_ptr res, closure_s_ptr done) {
-  if (m_is_init) {
+  if (is_init_) {
     return;
   }
-  m_controller = controller;
-  m_request = req;
-  m_response = res;
-  m_closure = done;
-  m_is_init = true;
+  controller_ = controller;
+  request_ = req;
+  response_ = res;
+  closure_ = done;
+  is_init_ = true;
 }
 
 google::protobuf::RpcController *RpcChannel::getController() {
-  return m_controller.get();
+  return controller_.get();
 }
 
-google::protobuf::Message *RpcChannel::getRequest() { return m_request.get(); }
+google::protobuf::Message *RpcChannel::getRequest() { return request_.get(); }
 
 google::protobuf::Message *RpcChannel::getResponse() {
-  return m_response.get();
+  return response_.get();
 }
 
-google::protobuf::Closure *RpcChannel::getClosure() { return m_closure.get(); }
+google::protobuf::Closure *RpcChannel::getClosure() { return closure_.get(); }
 
-TcpClient *RpcChannel::getTcpClient() { return m_client.get(); }
+TcpClient *RpcChannel::getTcpClient() { return client_.get(); }
 
 std::vector<tcp::endpoint> RpcChannel::FindAddr(const std::string &str) {
   size_t pos = str.find(":");
@@ -294,8 +294,8 @@ std::vector<tcp::endpoint> RpcChannel::FindAddr(const std::string &str) {
 
   // 根据服务名从配置文件中获取，调用服务地址
   // 配置当前仅支持但服务地址
-  auto it = Config::GetGlobalConfig()->m_rpc_stubs.find(str);
-  if (it != Config::GetGlobalConfig()->m_rpc_stubs.end()) {
+  auto it = Config::GetGlobalConfig()->rpc_stubs_.find(str);
+  if (it != Config::GetGlobalConfig()->rpc_stubs_.end()) {
     INFOLOG("find addr [%s] in global config of str[%s]",
             (*it).second.addr.address().to_string().c_str(), str.c_str());
     return {(*it).second.addr};

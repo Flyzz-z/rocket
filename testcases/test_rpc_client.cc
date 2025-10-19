@@ -17,54 +17,6 @@
 #include <unistd.h>
 
 #include "order.pb.h"
-
-// asio::awaitable<void> test_tcp_client() {
-
-//   asio::ip::tcp::endpoint endpoint = asio::ip::tcp::endpoint(
-//       asio::ip::address_v4::from_string("127.0.0.1"), 12345);
-//   rocket::TcpClient client(endpoint);
-//   co_await client.connect();
-
-//   DEBUGLOG("conenct to [%s] success",
-//   endpoint.address().to_string().c_str());
-//   std::shared_ptr<rocket::TinyPBProtocol> message =
-//       std::make_shared<rocket::TinyPBProtocol>();
-//   message->m_msg_id = "99998888";
-//   message->m_pb_data = "test pb data";
-
-//   makeOrderRequest request;
-//   request.set_price(100);
-//   request.set_goods("apple");
-
-//   if (!request.SerializeToString(&(message->m_pb_data))) {
-//     ERRORLOG("serilize error");
-//     co_return;
-//   }
-
-//   message->m_method_name = "Order.makeOrder";
-
-//   client.writeMessage(message,
-//                       [request](rocket::AbstractProtocol::s_ptr msg_ptr) {
-//                         DEBUGLOG("send message success, request[%s]",
-//                                  request.ShortDebugString().c_str());
-//                       });
-//   client.readMessage("99998888", [](rocket::AbstractProtocol::s_ptr msg_ptr)
-//   {
-//     std::shared_ptr<rocket::TinyPBProtocol> message =
-//         std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
-//     DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
-//              message->m_pb_data.c_str());
-//     makeOrderResponse response;
-
-//     if (!response.ParseFromString(message->m_pb_data)) {
-//       ERRORLOG("deserialize error");
-//       return;
-//     }
-//     DEBUGLOG("get response success, response[%s]",
-//              response.ShortDebugString().c_str());
-//   });
-// }
-
 void test_rpc_channel() {
 
   // NEWRPCCHANNEL("127.0.0.1:12345", channel);
@@ -115,9 +67,6 @@ void test_rpc_channel() {
 
   // CALLRPRC("127.0.0.1:12345", Order_Stub, makeOrder, controller, request,
   // response, closure);
-
-  // xxx
-  // 协程
 }
 
 int main() {

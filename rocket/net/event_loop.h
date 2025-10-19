@@ -27,7 +27,7 @@ public:
 	asio::io_context *getIOContext();
 
 private:
-  asio::io_context m_io_context;
+  asio::io_context io_context_;
 };
 
 
@@ -35,18 +35,18 @@ template <typename T>
   requires std::invocable<T> &&
            std::is_same_v<std::invoke_result_t<T>, asio::awaitable<void>>
 void EventLoop::addCoroutine(T&& cb) {
-  asio::co_spawn(m_io_context, std::forward<T>(cb), asio::detached);
+  asio::co_spawn(io_context_, std::forward<T>(cb), asio::detached);
 }
 
 template <typename T>
   requires std::invocable<T> && std::is_same_v<std::invoke_result_t<T>, void>
 void EventLoop::addTimer(int interval_ms, bool isRepeat, T&& cb) {
   asio::co_spawn(
-      m_io_context,
+      io_context_,
       [this, interval_ms, isRepeat,
        cb = std::forward<T>(cb)]() mutable -> asio::awaitable<void> {
         while (true) {
-          asio::steady_timer timer(m_io_context,
+          asio::steady_timer timer(io_context_,
                                    std::chrono::milliseconds(interval_ms));
           co_await timer.async_wait(asio::use_awaitable);
           cb();

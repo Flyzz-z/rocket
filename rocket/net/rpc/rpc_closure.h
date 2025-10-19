@@ -15,7 +15,7 @@ class RpcClosure : public google::protobuf::Closure {
  public:
   typedef std::shared_ptr<RpcInterface> it_s_ptr;
 
-  RpcClosure(it_s_ptr interface, std::function<void()> cb) : m_rpc_interface(interface), m_cb(cb) {
+  RpcClosure(it_s_ptr interface, std::function<void()> cb) : rpc_interface_(interface), cb_(cb) {
     INFOLOG("RpcClosure");
   }
 
@@ -26,43 +26,43 @@ class RpcClosure : public google::protobuf::Closure {
   void Run() override {
 
     // 更新 runtime 的 RpcInterFace, 这里在执行 cb 的时候，都会以 RpcInterface 找到对应的接口，实现打印 app 日志等
-    if (!m_rpc_interface) {
-      RunTime::GetRunTime()->m_rpc_interface = m_rpc_interface.get();
+    if (!rpc_interface_) {
+      RunTime::GetRunTime()->rpc_interface_ = rpc_interface_.get();
     }
 
     try {
-      if (m_cb != nullptr) {
-        m_cb();
+      if (cb_ != nullptr) {
+        cb_();
       }
-      if (m_rpc_interface) {
-        m_rpc_interface.reset();
+      if (rpc_interface_) {
+        rpc_interface_.reset();
       }
     } catch (RocketException& e) {
       ERRORLOG("RocketException exception[%s], deal handle", e.what());
       e.handle();
-      if (m_rpc_interface) {
-        m_rpc_interface->setError(e.errorCode(), e.errorInfo());
-        m_rpc_interface.reset();
+      if (rpc_interface_) {
+        rpc_interface_->setError(e.errorCode(), e.errorInfo());
+        rpc_interface_.reset();
       }
     } catch (std::exception& e) {
       ERRORLOG("std::exception[%s]", e.what());
-      if (m_rpc_interface) {
-        m_rpc_interface->setError(-1, "unkonwn std::exception");
-        m_rpc_interface.reset();
+      if (rpc_interface_) {
+        rpc_interface_->setError(-1, "unkonwn std::exception");
+        rpc_interface_.reset();
       }
     } catch (...) {
       ERRORLOG("Unkonwn exception");
-      if (m_rpc_interface) {
-        m_rpc_interface->setError(-1, "unkonwn exception");
-        m_rpc_interface.reset();
+      if (rpc_interface_) {
+        rpc_interface_->setError(-1, "unkonwn exception");
+        rpc_interface_.reset();
       }
     }
     
   }
 
  private:
-  it_s_ptr m_rpc_interface {nullptr};
-  std::function<void()> m_cb {nullptr};
+  it_s_ptr rpc_interface_ {nullptr};
+  std::function<void()> cb_ {nullptr};
 
 };
 

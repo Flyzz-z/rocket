@@ -10,33 +10,33 @@ template <class T>
 class ScopeMutex {
 
  public:
-  ScopeMutex(T& mutex) : m_mutex(mutex) {
-    m_mutex.lock();
-    m_is_lock = true;
+  ScopeMutex(T& mutex) : mutex_(mutex) {
+    mutex_.lock();
+    is_lock_ = true;
   }
 
   ~ScopeMutex() {
-    m_mutex.unlock();
-    m_is_lock = false;
+    mutex_.unlock();
+    is_lock_ = false;
   }
 
   void lock() {
-    if (!m_is_lock) {
-      m_mutex.lock();
+    if (!is_lock_) {
+      mutex_.lock();
     }
   }
 
   void unlock() {
-    if (m_is_lock) {
-      m_mutex.unlock();
+    if (is_lock_) {
+      mutex_.unlock();
     }
   }
 
  private:
 
-  T& m_mutex;
+  T& mutex_;
 
-  bool m_is_lock {false};
+  bool is_lock_ {false};
 
 };
 
@@ -44,27 +44,27 @@ class ScopeMutex {
 class Mutex {
  public:
   Mutex() {
-    pthread_mutex_init(&m_mutex, NULL);
+    pthread_mutex_init(&mutex_, NULL);
   }
 
   ~Mutex() {
-    pthread_mutex_destroy(&m_mutex);
+    pthread_mutex_destroy(&mutex_);
   }
 
   void lock() {
-    pthread_mutex_lock(&m_mutex);
+    pthread_mutex_lock(&mutex_);
   }
 
   void unlock() {
-    pthread_mutex_unlock(&m_mutex);
+    pthread_mutex_unlock(&mutex_);
   }
 
   pthread_mutex_t* getMutex() {
-    return &m_mutex;
+    return &mutex_;
   }
 
  private:
-  pthread_mutex_t m_mutex;
+  pthread_mutex_t mutex_;
 
 };
 

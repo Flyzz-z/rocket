@@ -104,30 +104,30 @@ class AsyncLogger {
   static void* Loop(void*);
 
  public:
-  std::thread m_thread;
+  std::thread thread_;
 
  private:
-  // m_file_path/m_file_name_yyyymmdd.0
+  // file_path_/file_name_yyyymmdd_.0
 
-  std::queue<std::vector<std::string>> m_buffer;
+  std::queue<std::vector<std::string>> buffer_;
 
-  std::string m_file_name;    // 日志输出文件名字
-  std::string m_file_path;    // 日志输出路径
-  int m_max_file_size {0};    // 日志单个文件最大大小, 单位为字节
+  std::string file_name_;    // 日志输出文件名字
+  std::string file_path_;    // 日志输出路径
+  int max_file_size_ {0};    // 日志单个文件最大大小, 单位为字节
 
-  std::binary_semaphore m_sempahore;
+  std::binary_semaphore sempahore_;
 
-  std::condition_variable m_cond;
-  std::mutex m_mutex;
+  std::condition_variable cond_;
+  std::mutex mutex_;
 
-  std::string m_date;   // 当前打印日志的文件日期
-  FILE* m_file_hanlder {NULL};   // 当前打开的日志文件句柄
+  std::string date_;   // 当前打印日志的文件日期
+  FILE* file_hanlder_ {NULL};   // 当前打开的日志文件句柄
 
-  bool m_reopen_flag {false};
+  bool reopen_flag_ {false};
 
-  int m_no {0};   // 日志文件序号
+  int no_ {0};   // 日志文件序号
 
-  bool m_stop_flag {false};
+  bool stop_flag_ {false};
 
 };
 
@@ -146,15 +146,15 @@ class Logger {
   void log();
 
   LogLevel getLogLevel() const {
-    return m_set_level;
+    return set_level_;
   }
 
   AsyncLogger::s_ptr getAsyncAppLopger() {
-    return m_asnyc_app_logger;
+    return asnyc_app_logger_;
   }
 
   AsyncLogger::s_ptr getAsyncLopger() {
-    return m_asnyc_logger;
+    return asnyc_logger_;
   }
 
   void syncLoop();
@@ -167,25 +167,25 @@ class Logger {
   static void InitGlobalLogger(int type = 1);
 
  private:
-  LogLevel m_set_level;
-  std::vector<std::string> m_buffer;
+  LogLevel set_level_;
+  std::vector<std::string> buffer_;
 
-  std::vector<std::string> m_app_buffer;
+  std::vector<std::string> app_buffer_;
 
-  std::mutex m_mutex;
+  std::mutex mutex_;
 
-  std::mutex m_app_mutex;
+  std::mutex app_mutex_;
 
-  // m_file_path/m_file_name_yyyymmdd.1
+  // file_path_/file_name_yyyymmdd_.1
 
-  std::string m_file_name;    // 日志输出文件名字
-  std::string m_file_path;    // 日志输出路径
-  int m_max_file_size {0};    // 日志单个文件最大大小
+  std::string file_name_;    // 日志输出文件名字
+  std::string file_path_;    // 日志输出路径
+  int max_file_size_ {0};    // 日志单个文件最大大小
 
-  AsyncLogger::s_ptr m_asnyc_logger;
+  AsyncLogger::s_ptr asnyc_logger_;
 
-  AsyncLogger::s_ptr m_asnyc_app_logger;
-  int m_type {0};
+  AsyncLogger::s_ptr asnyc_app_logger_;
+  int type_ {0};
 
 };
 
@@ -193,26 +193,26 @@ class Logger {
 class LogEvent {
  public:
 
-  LogEvent(LogLevel level) : m_level(level) {}
+  LogEvent(LogLevel level) : level_(level) {}
 
   std::string getFileName() const {
-    return m_file_name;  
+    return file_name_;  
   }
 
   LogLevel getLogLevel() const {
-    return m_level;
+    return level_;
   }
 
   std::string toString();
 
 
  private:
-  std::string m_file_name;  // 文件名
-  int32_t m_file_line;  // 行号
-  int32_t m_pid;  // 进程号
-  int32_t m_thread_id;  // 线程号
+  std::string file_name_;  // 文件名
+  int32_t file_line_;  // 行号
+  int32_t pid_;  // 进程号
+  int32_t thread_id_;  // 线程号
 
-  LogLevel m_level;     //日志级别
+  LogLevel level_;     //日志级别
 
 };
 

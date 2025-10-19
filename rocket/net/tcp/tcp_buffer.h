@@ -30,9 +30,9 @@ public:
 
 	void commit(std::size_t size);
 private: 
-	std::vector<char> m_buffer_vector;
-	TcpDataBuffer m_buffer;
-	std::size_t m_size;
+	std::vector<char> buffer_vector_;
+	TcpDataBuffer buffer_;
+	std::size_t size_;
 };
 
 

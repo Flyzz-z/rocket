@@ -35,21 +35,21 @@ void RpcDispatcher::dispatch(AbstractProtocol::s_ptr request, AbstractProtocol::
   std::shared_ptr<TinyPBProtocol> req_protocol = std::dynamic_pointer_cast<TinyPBProtocol>(request);
   std::shared_ptr<TinyPBProtocol> rsp_protocol = std::dynamic_pointer_cast<TinyPBProtocol>(response);
 
-  std::string method_full_name = req_protocol->m_method_name;
+  std::string method_full_name = req_protocol->method_name_;
   std::string service_name;
   std::string method_name;
 
-  rsp_protocol->m_msg_id = req_protocol->m_msg_id;
-  rsp_protocol->m_method_name = req_protocol->m_method_name;
+  rsp_protocol->msg_id_ = req_protocol->msg_id_;
+  rsp_protocol->method_name_ = req_protocol->method_name_;
 
   if (!parseServiceFullName(method_full_name, service_name, method_name)) {
     setTinyPBError(rsp_protocol, ERROR_PARSE_SERVICE_NAME, "parse service name error");
     return;
   }
 
-  auto it = m_service_map.find(service_name);
-  if (it == m_service_map.end()) {
-    ERRORLOG("%s | sericve neame[%s] not found", req_protocol->m_msg_id.c_str(), service_name.c_str());
+  auto it = service_map_.find(service_name);
+  if (it == service_map_.end()) {
+    ERRORLOG("%s | sericve neame[%s] not found", req_protocol->msg_id_.c_str(), service_name.c_str());
     setTinyPBError(rsp_protocol, ERROR_SERVICE_NOT_FOUND, "service not found");
     return;
   }
@@ -58,7 +58,7 @@ void RpcDispatcher::dispatch(AbstractProtocol::s_ptr request, AbstractProtocol::
 
   const google::protobuf::MethodDescriptor* method = service->GetDescriptor()->FindMethodByName(method_name);
   if (method == NULL) {
-    ERRORLOG("%s | method neame[%s] not found in service[%s]", req_protocol->m_msg_id.c_str(), method_name.c_str(), service_name.c_str());
+    ERRORLOG("%s | method neame[%s] not found in service[%s]", req_protocol->msg_id_.c_str(), method_name.c_str(), service_name.c_str());
     setTinyPBError(rsp_protocol, ERROR_SERVICE_NOT_FOUND, "method not found");
     return;
   }
@@ -66,33 +66,33 @@ void RpcDispatcher::dispatch(AbstractProtocol::s_ptr request, AbstractProtocol::
   google::protobuf::Message* req_msg = service->GetRequestPrototype(method).New();
 
   // 反序列化，将 pb_data 反序列化为 req_msg
-  if (!req_msg->ParseFromString(req_protocol->m_pb_data)) {
-    ERRORLOG("%s | deserilize error", req_protocol->m_msg_id.c_str(), method_name.c_str(), service_name.c_str());
+  if (!req_msg->ParseFromString(req_protocol->pb_data_)) {
+    ERRORLOG("%s | deserilize error", req_protocol->msg_id_.c_str(), method_name.c_str(), service_name.c_str());
     setTinyPBError(rsp_protocol, ERROR_FAILED_DESERIALIZE, "deserilize error");
     DELETE_RESOURCE(req_msg);
     return;
   }
 
-  INFOLOG("%s | get rpc request[%s]", req_protocol->m_msg_id.c_str(), req_msg->ShortDebugString().c_str());
+  INFOLOG("%s | get rpc request[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str());
 
   google::protobuf::Message* rsp_msg = service->GetResponsePrototype(method).New();
 
   RpcController* rpc_controller = new RpcController();
   rpc_controller->SetLocalAddr(connection->getLocalAddr());
   rpc_controller->SetPeerAddr(connection->getPeerAddr());
-  rpc_controller->SetMsgId(req_protocol->m_msg_id);
+  rpc_controller->SetMsgId(req_protocol->msg_id_);
 
-  RunTime::GetRunTime()->m_msgid = req_protocol->m_msg_id;
-  RunTime::GetRunTime()->m_method_name = method_name;
+  RunTime::GetRunTime()->msgid_ = req_protocol->msg_id_;
+  RunTime::GetRunTime()->method_name_ = method_name;
 
   RpcClosure* closure = new RpcClosure(nullptr, [req_msg, rsp_msg, req_protocol, rsp_protocol, connection, rpc_controller, this]() mutable {
-    if (!rsp_msg->SerializeToString(&(rsp_protocol->m_pb_data))) {
-      ERRORLOG("%s | serilize error, origin message [%s]", req_protocol->m_msg_id.c_str(), rsp_msg->ShortDebugString().c_str());
+    if (!rsp_msg->SerializeToString(&(rsp_protocol->pb_data_))) {
+      ERRORLOG("%s | serilize error, origin message [%s]", req_protocol->msg_id_.c_str(), rsp_msg->ShortDebugString().c_str());
       setTinyPBError(rsp_protocol, ERROR_FAILED_SERIALIZE, "serilize error");
     } else {
-      rsp_protocol->m_err_code = 0;
-      rsp_protocol->m_err_info = "";
-      INFOLOG("%s | dispatch success, requesut[%s], response[%s]", req_protocol->m_msg_id.c_str(), req_msg->ShortDebugString().c_str(), rsp_msg->ShortDebugString().c_str());
+      rsp_protocol->err_code_ = 0;
+      rsp_protocol->err_info_ = "";
+      INFOLOG("%s | dispatch success, requesut[%s], response[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str(), rsp_msg->ShortDebugString().c_str());
     }
 
     std::vector<AbstractProtocol::s_ptr> replay_messages;
@@ -128,14 +128,14 @@ bool RpcDispatcher::parseServiceFullName(const std::string& full_name, std::stri
 
 void RpcDispatcher::registerService(service_s_ptr service) {
   std::string service_name = service->GetDescriptor()->full_name();
-  m_service_map[service_name] = service;
+  service_map_[service_name] = service;
 
 }
 
 void RpcDispatcher::setTinyPBError(std::shared_ptr<TinyPBProtocol> msg, int32_t err_code, const std::string err_info) {
-  msg->m_err_code = err_code;
-  msg->m_err_info = err_info;
-  msg->m_err_info_len = err_info.length();
+  msg->err_code_ = err_code;
+  msg->err_info_ = err_info;
+  msg->err_info_len_ = err_info.length();
 }
 
 }

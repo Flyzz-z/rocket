@@ -17,9 +17,9 @@ class RunTime {
 
 
  public:
-  std::string m_msgid;
-  std::string m_method_name;
-  RpcInterface* m_rpc_interface {NULL};
+  std::string msgid_;
+  std::string method_name_;
+  RpcInterface* rpc_interface_ {NULL};
 
 };
 

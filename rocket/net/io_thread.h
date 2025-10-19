@@ -29,14 +29,14 @@ class IOThread {
 
 
  private:
-  pid_t m_thread_id {-1};    // 线程号
-  std::thread m_thread;   // 线程句柄
+  pid_t thread_id_ {-1};    // 线程号
+  std::thread thread_;   // 线程句柄
 
-  EventLoop m_event_loop;
+  EventLoop event_loop_;
 
-  std::binary_semaphore m_init_semaphore;
+  std::binary_semaphore init_semaphore_;
 
-  std::binary_semaphore m_start_semaphore;
+  std::binary_semaphore start_semaphore_;
 
 };
 

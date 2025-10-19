@@ -11,21 +11,21 @@
 
 namespace rocket {
 
-IOThread::IOThread(): m_init_semaphore(0),m_start_semaphore(0) {  
+IOThread::IOThread(): init_semaphore_(0),start_semaphore_(0) {  
 
-  m_thread = std::thread(Main, this);
-  m_init_semaphore.acquire();
+  thread_ = std::thread(Main, this);
+  init_semaphore_.acquire();
 
-  DEBUGLOG("IOThread [%d] create success", m_thread_id);
+  DEBUGLOG("IOThread [%d] create success", thread_id_);
 }
   
 IOThread::~IOThread() {
-  m_event_loop.stop();
-  m_thread.join();
+  event_loop_.stop();
+  thread_.join();
 }
 
 EventLoop* IOThread::getEventLoop() {
-  return &m_event_loop;
+  return &event_loop_;
 }
 
 /*
@@ -34,19 +34,19 @@ EventLoop* IOThread::getEventLoop() {
 */
 void* IOThread::Main(void* arg) {
   IOThread* io_thread = static_cast<IOThread*> (arg);
-  io_thread->m_thread_id = getThreadId();
+  io_thread->thread_id_ = getThreadId();
 
 
-  io_thread->m_init_semaphore.release();
+  io_thread->init_semaphore_.release();
 	
-  DEBUGLOG("IOThread %d created, wait start semaphore", io_thread->m_thread_id);
+  DEBUGLOG("IOThread %d created, wait start semaphore", io_thread->thread_id_);
 
-  io_thread->m_start_semaphore.acquire();
-  DEBUGLOG("IOThread %d start loop ", io_thread->m_thread_id);
-	auto work_guard = asio::make_work_guard(io_thread->m_event_loop.getIOContext());
-  io_thread->m_event_loop.run();
+  io_thread->start_semaphore_.acquire();
+  DEBUGLOG("IOThread %d start loop ", io_thread->thread_id_);
+	auto work_guard = asio::make_work_guard(io_thread->event_loop_.getIOContext());
+  io_thread->event_loop_.run();
 
-  DEBUGLOG("IOThread %d end loop ", io_thread->m_thread_id);
+  DEBUGLOG("IOThread %d end loop ", io_thread->thread_id_);
 
   return NULL;
 
@@ -55,17 +55,17 @@ void* IOThread::Main(void* arg) {
 
 
 void IOThread::start() {
-  DEBUGLOG("Now invoke IOThread %d", m_thread_id);
-  m_start_semaphore.release();
+  DEBUGLOG("Now invoke IOThread %d", thread_id_);
+  start_semaphore_.release();
 }
 
 
 void IOThread::join() {
-  m_thread.join();
+  thread_.join();
 }
 
 void IOThread::stop() {
-  m_event_loop.stop();
+  event_loop_.stop();
 }
 
 }

@@ -63,8 +63,8 @@ asio::awaitable<void> test_tcp_client() {
 
   std::shared_ptr<rocket::TinyPBProtocol> message =
       std::make_shared<rocket::TinyPBProtocol>();
-  message->m_msg_id = "123456789";
-  message->m_pb_data = "test pb data";
+  message->msg_id_ = "123456789";
+  message->pb_data_ = "test pb data";
   client.writeMessage(message, [](rocket::AbstractProtocol::s_ptr msg_ptr) {
     DEBUGLOG("send message success");
   });
@@ -72,12 +72,11 @@ asio::awaitable<void> test_tcp_client() {
   client.readMessage("123456789", [](rocket::AbstractProtocol::s_ptr msg_ptr) {
     std::shared_ptr<rocket::TinyPBProtocol> message =
         std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg_ptr);
-    DEBUGLOG("msg_id[%s], get response %s", message->m_msg_id.c_str(),
-             message->m_pb_data.c_str());
+    DEBUGLOG("msg_id[%s], get response %s", message->msg_id_.c_str(),
+             message->pb_data_.c_str());
   });
-	std::cout<<1<<std::endl;
-	// sleep 10 s
-	std::this_thread::sleep_for(std::chrono::seconds(10));
+  // sleep 10 s
+  std::this_thread::sleep_for(std::chrono::seconds(10));
 }
 
 int main() {
@@ -87,8 +86,9 @@ int main() {
   rocket::Logger::InitGlobalLogger(0);
 
   // test_connect();
-	asio::io_context ioc;
-  asio::co_spawn(ioc,[]()->auto{return test_tcp_client();},asio::detached);
-	ioc.run();
+  asio::io_context ioc;
+  asio::co_spawn(
+      ioc, []() -> auto { return test_tcp_client(); }, asio::detached);
+  ioc.run();
   return 0;
 }

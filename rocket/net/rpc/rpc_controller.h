@@ -59,18 +59,18 @@ class RpcController : public google::protobuf::RpcController {
   void SetFinished(bool value);
  
  private:
-  int32_t m_error_code {0};
-  std::string m_error_info;
-  std::string m_msg_id;
+  int32_t error_code_ {0};
+  std::string error_info_;
+  std::string msg_id_;
 
-  bool m_is_failed {false};
-  bool m_is_cancled {false};
-  bool m_is_finished {false};
+  bool is_failed_ {false};
+  bool is_cancled_ {false};
+  bool is_finished_ {false};
 
-  tcp::endpoint m_local_addr;
-  tcp::endpoint m_peer_addr;
+  tcp::endpoint local_addr_;
+  tcp::endpoint peer_addr_;
 
-  int m_timeout {1000};   // ms
+  int timeout_ {1000};   // ms
 
 };
 
