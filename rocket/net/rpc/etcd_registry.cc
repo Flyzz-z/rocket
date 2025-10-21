@@ -25,6 +25,8 @@ void EtcdRegistry::init(const std::string &ip, int port,
       std::make_unique<etcd::Client>(addr, username, password);
   instance->ip_ = ip;
   instance->port_ = port;
+
+	instance->startWatcher();
 }
 
 void EtcdRegistry::initFromConfig() {
