@@ -25,4 +25,4 @@ compile_commands.json
 *.dll
 *.dylib
 
-.cahce/
+.cache/
