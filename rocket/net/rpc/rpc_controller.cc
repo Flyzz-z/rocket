@@ -95,4 +95,12 @@ void RpcController::SetFinished(bool value) {
   is_finished_ = value;
 }
 
+void RpcController::SetWaiter(asio::steady_timer *waiter) {
+	waiter_ = waiter;
+}
+
+asio::steady_timer *RpcController::GetWaiter() {
+  return waiter_;
+}
+
 }

@@ -1,4 +1,4 @@
-#include "order.pb.h"
+#include "proto/order.pb.h"
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
 #include "rocket/net/rpc/etcd_registry.h"
@@ -22,9 +22,6 @@ public:
                  const ::makeOrderRequest *request,
                  ::makeOrderResponse *response,
                  ::google::protobuf::Closure *done) {
-    APPDEBUGLOG("start sleep 5s");
-    sleep(5);
-    APPDEBUGLOG("end sleep 5s");
     if (request->price() < 10) {
       response->set_ret_code(-1);
       response->set_res_info("short balance");
@@ -51,12 +48,10 @@ int main(int argc, char *argv[]) {
 
   rocket::Config::SetGlobalConfig(argv[1]);
 
-  rocket::Logger::InitGlobalLogger();
+  rocket::Logger::InitGlobalLogger(0);
 
 	// 注册etcd服务
-	// TODO 替换从配置加载并启动
   rocket::EtcdRegistry::initFromConfig();
-
   std::shared_ptr<OrderImpl> service = std::make_shared<OrderImpl>();
 	// 注册服务实现
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);

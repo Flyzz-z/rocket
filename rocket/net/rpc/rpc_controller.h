@@ -2,6 +2,7 @@
 #define ROCKER_NET_RPC_RPC_CONTROLLER_H
 
 #include <asio/ip/tcp.hpp>
+#include <asio/steady_timer.hpp>
 #include <google/protobuf/service.h>
 #include <google/protobuf/stubs/callback.h>
 #include <string>
@@ -57,6 +58,10 @@ class RpcController : public google::protobuf::RpcController {
   bool Finished();
 
   void SetFinished(bool value);
+
+	void SetWaiter(asio::steady_timer *chan);
+
+	asio::steady_timer *GetWaiter();
  
  private:
   int32_t error_code_ {0};
@@ -72,6 +77,7 @@ class RpcController : public google::protobuf::RpcController {
 
   int timeout_ {1000};   // ms
 
+	asio::steady_timer *waiter_; 
 };
 
 }

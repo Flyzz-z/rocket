@@ -9,7 +9,6 @@
 #include <asio/read.hpp>
 #include <asio/write.hpp>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <unistd.h>
 
@@ -64,7 +63,6 @@ awaitable<void> TcpConnection::reader() {
                  peer_addr_.address().to_string().c_str());
         co_return;
       }
-      // TODO 处理错误
       auto data_ptr = in_buffer_.getBuffer().prepare(in_buffer_.maxSize());
       auto bytes_read = co_await asio::async_read(
           socket_, data_ptr, asio::transfer_at_least(1), use_awaitable);
@@ -96,8 +94,6 @@ void TcpConnection::execute() {
 
       std::shared_ptr<TinyPBProtocol> message =
           std::make_shared<TinyPBProtocol>();
-      // message->pb_data_ = "hello. this is rocket rpc test data";
-      // message->msg_id_ = result[i]->msg_id_;
 
       RpcDispatcher::GetRpcDispatcher()->dispatch(result[i], message, this);
     }
@@ -138,7 +134,7 @@ awaitable<void> TcpConnection::writer() {
       if (out_buffer_.dataSize() > 0 || write_dones_.size() > 0) {
         // 客户端需要编码消息
         if (connection_type_ == TcpConnectionByClient) {
-          //  1. 将 message encode 得到字节流
+          // 1. 将 message encode 得到字节流
           // 2. 将字节流入到 buffer 里面，然后全部发送
           std::vector<AbstractProtocol::s_ptr> messages;
 

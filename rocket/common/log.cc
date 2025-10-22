@@ -56,12 +56,13 @@ void Logger::init() {
   if (type_ == 0) {
     return;
   }
+	// TODO 添加定期刷日志功能
   // timer_event_ =
   // std::make_shared<TimerEvent>(Config::GetGlobalConfig()->log_sync_inteval_,
   // true, std::bind(&Logger::syncLoop, this));
   // EventLoop::GetCurrentEventLoop()->addTimerEvent(timer_event_);
-  // signal(SIGSEGV, CoredumpHandler);
-  // signal(SIGABRT, CoredumpHandler);
+  signal(SIGSEGV, CoredumpHandler);
+  signal(SIGABRT, CoredumpHandler);
   signal(SIGTERM, CoredumpHandler);
   signal(SIGKILL, CoredumpHandler);
   signal(SIGINT, CoredumpHandler);

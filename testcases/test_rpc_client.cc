@@ -1,11 +1,12 @@
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
+#include "rocket/net/event_loop.h"
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_channel.h"
-#include "rocket/net/rpc/rpc_closure.h"
 #include <arpa/inet.h>
 #include <asio/awaitable.hpp>
 #include <assert.h>
+#include <cstddef>
 #include <fcntl.h>
 #include <google/protobuf/service.h>
 #include <memory>
@@ -16,9 +17,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "order.pb.h"
-void test_rpc_channel() {
+#include "proto/co_stub/co_order_stub.h"
+#include "rpc_controller.h"
 
+asio::awaitable<void> test_rpc_channel() {
   // NEWRPCCHANNEL("127.0.0.1:12345", channel);
   NEWRPCCHANNEL("Order", channel);
 
@@ -35,51 +37,27 @@ void test_rpc_channel() {
   controller->SetMsgId("99998888");
   controller->SetTimeout(10000);
 
-  std::shared_ptr<rocket::RpcClosure> closure =
-      std::make_shared<rocket::RpcClosure>(nullptr, [request, response, channel,
-                                                     controller]() mutable {
-        if (controller->GetErrorCode() == 0) {
-          INFOLOG("call rpc success, request[%s], response[%s]",
-                  request->ShortDebugString().c_str(),
-                  response->ShortDebugString().c_str());
-          // 执行业务逻辑
-          if (response->order_id() == "xxx") {
-            // xx
-          }
-        } else {
-          ERRORLOG(
-              "call rpc failed, request[%s], error code[%d], error info[%s]",
-              request->ShortDebugString().c_str(), controller->GetErrorCode(),
-              controller->GetErrorInfo().c_str());
-        }
-
-        INFOLOG("now exit eventloop");
-        // channel->getTcpClient()->stop();
-        channel.reset();
-      });
-
-  {
-    channel->Init(controller, request, response, closure);
-    Order_Stub(channel.get())
-        .makeOrder(controller.get(), request.get(), response.get(),
-                   closure.get());
+  channel->Init(controller, request, response, nullptr);
+  co_await CoOrderStub(channel.get())
+      .coMakeOrder(controller.get(), request.get(), response.get(), nullptr);
+  if (!controller->Failed()) {
+    APPINFOLOG("response order id: %s ,res info %s",
+               response->order_id().c_str(), response->res_info().c_str());
+  } else {
+    APPERRORLOG("controller failed, error_code: %d, error_info: %s",
+                controller->GetErrorCode(), controller->GetErrorInfo().c_str());
   }
-
-  // CALLRPRC("127.0.0.1:12345", Order_Stub, makeOrder, controller, request,
-  // response, closure);
 }
 
 int main() {
 
   rocket::Config::SetGlobalConfig(NULL);
-
   rocket::Logger::InitGlobalLogger(0);
+  rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
 
-  rocket::EtcdRegistry::init("127.0.0.1",2379, "root", "123456");
-
-  // test_tcp_client();
-  test_rpc_channel();
-  sleep(10);
+  rocket::EventLoop event_loop;
+  event_loop.addCoroutine(test_rpc_channel);
+  event_loop.run();
 
   INFOLOG("test_rpc_channel end");
 

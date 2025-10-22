@@ -5,7 +5,6 @@
 #include <asio/io_context.hpp>
 #include <memory>
 #include "event_loop.h"
-#include "rocket/net/io_thread_singleton.h"
 #include "rocket/net/tcp/tcp_connection.h"
 #include "rocket/net/coder/abstract_protocol.h"
 
@@ -49,7 +48,6 @@ class TcpClient {
   tcp::endpoint peer_addr_;	
   tcp::endpoint local_addr_;
 
-	IOThreadSingleton *io_thread_singleton_;
 	EventLoop* event_loop_;
 
   TcpConnection::s_ptr connection_;

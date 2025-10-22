@@ -1,11 +1,11 @@
 #include "rocket/net/rpc/rpc_channel.h"
-#include "rocket/net/event_loop.h"
 #include "rocket/common/config.h"
 #include "rocket/common/error_code.h"
 #include "rocket/common/log.h"
 #include "rocket/common/msg_id_util.h"
 #include "rocket/common/run_time.h"
 #include "rocket/net/coder/tinypb_protocol.h"
+#include "rocket/net/event_loop.h"
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_controller.h"
 #include "rocket/net/tcp/tcp_client.h"
@@ -19,10 +19,8 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/service.h>
 
-
 namespace rocket {
 
-// TODO 思考如何利用移动语义
 RpcChannel::RpcChannel(std::vector<tcp::endpoint> peer_addrs)
     : peer_addrs_(peer_addrs) {
   INFOLOG("RpcChannel");
@@ -39,10 +37,11 @@ void RpcChannel::callBack() {
 
   if (closure_) {
     closure_->Run();
-    if (my_controller) {
-      my_controller->SetFinished(true);
-    }
   }
+
+  my_controller->SetFinished(true);
+  // 通知等待结果协程，rpc调用已完成
+  my_controller->GetWaiter()->cancel();
 }
 
 /*
@@ -75,12 +74,12 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   tcp::endpoint peer_addr;
   for (int i = 0; i < peer_addrs_.size(); i++) {
     if (peer_addrs_[addr_index_].address().is_unspecified()) {
-			addr_index_ = (addr_index_ + 1) % peer_addrs_.size();
+      addr_index_ = (addr_index_ + 1) % peer_addrs_.size();
       continue;
     } else {
-			peer_addr = peer_addrs_[addr_index_];
-			break;
-		}
+      peer_addr = peer_addrs_[addr_index_];
+      break;
+    }
   }
 
   if (peer_addr.address().is_unspecified()) {
@@ -138,10 +137,10 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   s_ptr channel = shared_from_this();
 
   // 使用协程实现超时控制
-	EventLoop *event_loop = client_->getEventLoop();
-	if(!event_loop) {
-		ERRORLOG("RpcChannel::CallMethod event_loop nullptr");
-	}
+  EventLoop *event_loop = client_->getEventLoop();
+  if (!event_loop) {
+    ERRORLOG("RpcChannel::CallMethod event_loop nullptr");
+  }
 
   event_loop->addTimer(
       my_controller->GetTimeout(), false, [my_controller, channel]() mutable {
@@ -162,7 +161,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
       });
 
   event_loop->addCoroutine([this, req_protocol, my_controller,
-                       channel]() mutable -> asio::awaitable<void> {
+                            channel]() mutable -> asio::awaitable<void> {
     co_await client_->connect();
 
     if (getTcpClient()->getConnectErrorCode() != 0) {
@@ -177,7 +176,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
       callBack();
       co_return;
     }
-
+																							
     INFOLOG("%s | connect success, peer addr[%s], local addr[%s]",
             req_protocol->msg_id_.c_str(),
             getTcpClient()->getPeerAddr().address().to_string().c_str(),
@@ -201,6 +200,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         [this, my_controller](AbstractProtocol::s_ptr msg) mutable {
           std::shared_ptr<rocket::TinyPBProtocol> rsp_protocol =
               std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg);
+
           INFOLOG("%s | success get rpc response, call method name[%s], peer "
                   "addr[%s], local addr[%s]",
                   rsp_protocol->msg_id_.c_str(),
@@ -220,8 +220,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
                      "error info[%s]",
                      rsp_protocol->msg_id_.c_str(),
                      rsp_protocol->method_name_.c_str(),
-                     rsp_protocol->err_code_,
-                     rsp_protocol->err_info_.c_str());
+                     rsp_protocol->err_code_, rsp_protocol->err_info_.c_str());
 
             my_controller->SetError(rsp_protocol->err_code_,
                                     rsp_protocol->err_info_);
@@ -259,9 +258,7 @@ google::protobuf::RpcController *RpcChannel::getController() {
 
 google::protobuf::Message *RpcChannel::getRequest() { return request_.get(); }
 
-google::protobuf::Message *RpcChannel::getResponse() {
-  return response_.get();
-}
+google::protobuf::Message *RpcChannel::getResponse() { return response_.get(); }
 
 google::protobuf::Closure *RpcChannel::getClosure() { return closure_.get(); }
 

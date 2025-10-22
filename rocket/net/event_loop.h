@@ -6,57 +6,39 @@
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/steady_timer.hpp>
+#include <functional>
+
 namespace rocket {
 
-class EventLoop : asio::noncopyable {
+class EventLoop {
 public:
   EventLoop();
   ~EventLoop();
+	EventLoop(const EventLoop&) = delete;
+	EventLoop& operator=(const EventLoop&) = delete; 
+
   void run();
   void stop();
-  template <typename T>
-    requires std::invocable<T> &&
-             std::is_same_v<std::invoke_result_t<T>, asio::awaitable<void>>
-  void addCoroutine(T&& cb);
-
-	template <typename T>
-    requires std::invocable<T> &&
-             std::is_same_v<std::invoke_result_t<T>, void>
-  void addTimer(int interval_ms, bool isRepeat, T&& cb);
+  
+  // 使用std::function替代模板约束
+  void addCoroutine(std::function<asio::awaitable<void>()> cb);
+  
+  void addTimer(int interval_ms, bool isRepeat, std::function<void()> cb);
   
 	asio::io_context *getIOContext();
+
+	static thread_local EventLoop* t_event_loop_;
+
+	static EventLoop* getThreadEventLoop() {
+		return t_event_loop_;
+	}
 
 private:
   asio::io_context io_context_;
 };
 
 
-template <typename T>
-  requires std::invocable<T> &&
-           std::is_same_v<std::invoke_result_t<T>, asio::awaitable<void>>
-void EventLoop::addCoroutine(T&& cb) {
-  asio::co_spawn(io_context_, std::forward<T>(cb), asio::detached);
-}
 
-template <typename T>
-  requires std::invocable<T> && std::is_same_v<std::invoke_result_t<T>, void>
-void EventLoop::addTimer(int interval_ms, bool isRepeat, T&& cb) {
-  asio::co_spawn(
-      io_context_,
-      [this, interval_ms, isRepeat,
-       cb = std::forward<T>(cb)]() mutable -> asio::awaitable<void> {
-        while (true) {
-          asio::steady_timer timer(io_context_,
-                                   std::chrono::milliseconds(interval_ms));
-          co_await timer.async_wait(asio::use_awaitable);
-          cb();
-          if (!isRepeat) {
-            break;
-          }
-        }
-      },
-      asio::detached);
-}
 } // namespace rocket
 
 #endif

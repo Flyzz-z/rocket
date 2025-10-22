@@ -67,7 +67,6 @@ bool EtcdRegistry::registerService(const std::string &service_name,
 }
 
 // 该函数暂未使用
-// TODO 待添加处理租约
 void EtcdRegistry::unregisterService(const string &service_name) {
   try {
     string addr = ip_ + ":" + std::to_string(port_);
@@ -131,7 +130,7 @@ void EtcdRegistry::startWatcher() {
   }
 
   watching_.store(true);
-
+	DEBUGLOG("begin start watcher");
   // 在单独的线程中启动watcher，避免阻塞
   watcher_thread_ = std::make_unique<std::thread>([this]() {
     try {
@@ -147,8 +146,7 @@ void EtcdRegistry::startWatcher() {
           std::make_unique<etcd::Watcher>(*etcd_client_, watch_prefix, callback,
                                           true); // true表示监听前缀下的所有变化
 
-      INFOLOG("Etcd watcher started for prefix: %s", watch_prefix.c_str());
-
+      INFOLOG("Etcd watcher started for prefix: %s", watch_prefix.c_str());      
       // 保持watcher运行
       watcher_->Wait();
 
@@ -182,9 +180,8 @@ void EtcdRegistry::stopWatcher() {
 
 void EtcdRegistry::handleWatchEvent(etcd::Response response) {
   try {
-    INFOLOG("Received etcd watch event, action: %s, key: %s",
-            response.action().c_str(), response.key(0).c_str());
-
+    INFOLOG("Received etcd watch event, action: %s",
+            response.action().c_str());
     // 检查事件类型
     if (response.action() == "delete" || response.action() == "expire") {
       // 服务被删除或过期
