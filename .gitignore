@@ -1,9 +1,28 @@
-bin/*
-lib/*
-obj/*
-log/*
-newtest/*
+# Build directories
+build/
+cmake-build-*/
 
-*.pb.h
-*.pb.cc
-.cache
+# 编译产物目录
+bin/
+lib/
+obj/
+
+# 日志目录
+log/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# 编译器和系统相关
+*.o
+*.a
+*.so
+*.exe
+*.dll
+*.dylib
+
+.cahce/
