@@ -18,7 +18,7 @@ TcpConnection::TcpConnection(asio::io_context *io_context, tcp::socket socket,
                              int buffer_size,
                              TcpConnectionType type /*= TcpConnectionByServer*/)
     : io_context_(io_context), socket_(std::move(socket)),
-      timer_(socket_.get_executor()), in_buffer_(buffer_size),
+      timer_(*io_context), in_buffer_(buffer_size),
       out_buffer_(buffer_size), connection_type_(type) {
 
   local_addr_ = socket_.local_endpoint();

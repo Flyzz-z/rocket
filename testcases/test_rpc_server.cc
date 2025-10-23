@@ -61,7 +61,6 @@ int main(int argc, char *argv[]) {
       asio::ip::tcp::endpoint(addr, rocket::Config::GetGlobalConfig()->port_);
 
   rocket::TcpServer tcp_server(endpoint);
-
   tcp_server.start();
 
   return 0;

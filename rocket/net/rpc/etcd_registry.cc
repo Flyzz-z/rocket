@@ -190,7 +190,7 @@ void EtcdRegistry::handleWatchEvent(etcd::Response response) {
       removeServiceFromCache(key);
     } else if (response.action() == "set" || response.action() == "update") {
       // 服务被创建或更新
-      INFOLOG("Service updated, key: %s", response.key(0).c_str());
+      INFOLOG("Service updated");
       // 可以选择刷新相关服务的缓存
     }
   } catch (const std::exception &e) {

@@ -20,12 +20,12 @@ IOThread::IOThread(): init_semaphore_(0),start_semaphore_(0) {
 }
   
 IOThread::~IOThread() {
-  event_loop_.stop();
+  event_loop_->stop();
   thread_.join();
 }
 
 EventLoop* IOThread::getEventLoop() {
-  return &event_loop_;
+  return event_loop_;
 }
 
 /*
@@ -35,6 +35,7 @@ EventLoop* IOThread::getEventLoop() {
 void* IOThread::Main(void* arg) {
   IOThread* io_thread = static_cast<IOThread*> (arg);
   io_thread->thread_id_ = getThreadId();
+	io_thread->event_loop_ = EventLoop::getThreadEventLoop();
 
 
   io_thread->init_semaphore_.release();
@@ -43,8 +44,9 @@ void* IOThread::Main(void* arg) {
 
   io_thread->start_semaphore_.acquire();
   DEBUGLOG("IOThread %d start loop ", io_thread->thread_id_);
-	auto work_guard = asio::make_work_guard(io_thread->event_loop_.getIOContext());
-  io_thread->event_loop_.run();
+
+	auto work_guard = asio::make_work_guard(io_thread->event_loop_->getIOContext());
+  io_thread->event_loop_->run();
 
   DEBUGLOG("IOThread %d end loop ", io_thread->thread_id_);
 
@@ -65,7 +67,7 @@ void IOThread::join() {
 }
 
 void IOThread::stop() {
-  event_loop_.stop();
+  event_loop_->stop();
 }
 
 }

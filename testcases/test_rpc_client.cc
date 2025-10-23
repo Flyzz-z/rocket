@@ -1,3 +1,4 @@
+#include <iostream>
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
 #include "rocket/net/event_loop.h"
@@ -41,11 +42,11 @@ asio::awaitable<void> test_rpc_channel() {
   co_await CoOrderStub(channel.get())
       .coMakeOrder(controller.get(), request.get(), response.get(), nullptr);
   if (!controller->Failed()) {
-    APPINFOLOG("response order id: %s ,res info %s",
-               response->order_id().c_str(), response->res_info().c_str());
+    std::cout << "response order id: " << response->order_id()
+              << " ,res info " << response->res_info() << std::endl;
   } else {
-    APPERRORLOG("controller failed, error_code: %d, error_info: %s",
-                controller->GetErrorCode(), controller->GetErrorInfo().c_str());
+    std::cout << "controller failed, error_code: " << controller->GetErrorCode()
+              << ", error_info: " << controller->GetErrorInfo() << std::endl;
   }
 }
 
@@ -55,11 +56,11 @@ int main() {
   rocket::Logger::InitGlobalLogger(0);
   rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
 
-  rocket::EventLoop event_loop;
-  event_loop.addCoroutine(test_rpc_channel);
-  event_loop.run();
+  rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
+  event_loop->addCoroutine(test_rpc_channel);
+  event_loop->run();
 
-  INFOLOG("test_rpc_channel end");
+  std::cout << "test_rpc_channel end" << std::endl;
 
   return 0;
 }

@@ -6,17 +6,28 @@
 
 namespace rocket {
 
-thread_local EventLoop* EventLoop::t_event_loop_;
+thread_local std::unique_ptr<EventLoop> EventLoop::t_event_loop_ = nullptr;
 
-EventLoop::EventLoop() { 
-	t_event_loop_ = this;
+EventLoop::EventLoop() {
+  work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(
+      asio::make_work_guard(io_context_));
+}
+
+EventLoop *EventLoop::getThreadEventLoop() {
+  if (t_event_loop_ == nullptr) {
+    t_event_loop_ = std::make_unique<EventLoop>();
+  }
+  return t_event_loop_.get();
 }
 
 EventLoop::~EventLoop() { stop(); }
 
 void EventLoop::run() { io_context_.run(); }
 
-void EventLoop::stop() { io_context_.stop(); }
+void EventLoop::stop() { 
+  work_guard_.reset();
+  io_context_.stop(); 
+}
 
 asio::io_context *EventLoop::getIOContext() { return &io_context_; }
 
@@ -24,11 +35,13 @@ void EventLoop::addCoroutine(std::function<asio::awaitable<void>()> cb) {
   asio::co_spawn(io_context_, std::move(cb), asio::detached);
 }
 
-void EventLoop::addTimer(int interval_ms, bool isRepeat, std::function<void()> cb) {
+void EventLoop::addTimer(int interval_ms, bool isRepeat,
+                         std::function<void()> cb) {
 
   asio::co_spawn(
       io_context_,
-      [this, interval_ms, isRepeat, cb = std::move(cb)]() mutable -> asio::awaitable<void> {
+      [this, interval_ms, isRepeat,
+       cb = std::move(cb)]() mutable -> asio::awaitable<void> {
         while (true) {
           asio::steady_timer timer(io_context_,
                                    std::chrono::milliseconds(interval_ms));
@@ -40,7 +53,6 @@ void EventLoop::addTimer(int interval_ms, bool isRepeat, std::function<void()> c
         }
       },
       asio::detached);
-									
 }
 
 } // namespace rocket

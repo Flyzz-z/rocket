@@ -7,6 +7,7 @@
 #include <asio/detached.hpp>
 #include <asio/steady_timer.hpp>
 #include <functional>
+#include <memory>
 
 namespace rocket {
 
@@ -27,14 +28,13 @@ public:
   
 	asio::io_context *getIOContext();
 
-	static thread_local EventLoop* t_event_loop_;
+	static thread_local std::unique_ptr<EventLoop> t_event_loop_;
 
-	static EventLoop* getThreadEventLoop() {
-		return t_event_loop_;
-	}
+	static EventLoop* getThreadEventLoop();
 
 private:
   asio::io_context io_context_;
+  std::unique_ptr<asio::executor_work_guard<asio::io_context::executor_type>> work_guard_;
 };
 
 

@@ -32,7 +32,7 @@ class IOThread {
   pid_t thread_id_ {-1};    // 线程号
   std::thread thread_;   // 线程句柄
 
-  EventLoop event_loop_;
+  EventLoop *event_loop_;
 
   std::binary_semaphore init_semaphore_;
 

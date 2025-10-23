@@ -41,7 +41,9 @@ void RpcChannel::callBack() {
 
   my_controller->SetFinished(true);
   // 通知等待结果协程，rpc调用已完成
-  my_controller->GetWaiter()->cancel();
+  if (my_controller->GetWaiter()) {
+    my_controller->GetWaiter()->cancel();
+  }
 }
 
 /*
@@ -176,7 +178,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
       callBack();
       co_return;
     }
-																							
+
     INFOLOG("%s | connect success, peer addr[%s], local addr[%s]",
             req_protocol->msg_id_.c_str(),
             getTcpClient()->getPeerAddr().address().to_string().c_str(),
