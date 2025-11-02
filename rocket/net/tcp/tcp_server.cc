@@ -46,21 +46,22 @@ void TcpServer::init() {
  * 在IO线程中使用上下文调用协程
  */
 awaitable<void> TcpServer::listener() {
-  try {
-    for (;;) {
-      auto socket = co_await acceptor_->async_accept(use_awaitable);
-			EventLoop* run_event_loop = io_thread_group_->getIOThread()->getEventLoop();
-      auto run_io_context = run_event_loop->getIOContext();
-      INFOLOG("TcpServer succ get client, address=%s",
-              socket.remote_endpoint().address().to_string().c_str());
-      std::shared_ptr<TcpConnection> connection =
-          std::make_shared<TcpConnection>(run_io_context, std::move(socket),
-                                          128);
-      connection->start();
-      clients_.insert(connection);
+  for (;;) {
+    asio::error_code ec;
+    auto socket = co_await acceptor_->async_accept(redirect_error(use_awaitable, ec));
+    if (ec) {
+      ERRORLOG("TcpServer::listener() error: %s", ec.message().c_str());
+      co_return;
     }
-  } catch (std::exception &e) {
-    ERRORLOG("TcpServer::listener() exception: %s", e.what());
+    EventLoop* run_event_loop = io_thread_group_->getIOThread()->getEventLoop();
+    auto run_io_context = run_event_loop->getIOContext();
+    INFOLOG("TcpServer succ get client, address=%s",
+            socket.remote_endpoint().address().to_string().c_str());
+    std::shared_ptr<TcpConnection> connection =
+        std::make_shared<TcpConnection>(run_io_context, std::move(socket),
+                                        128);
+    connection->start();
+    clients_.insert(connection);
   }
 }
 

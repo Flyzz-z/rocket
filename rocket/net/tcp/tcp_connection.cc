@@ -10,32 +10,33 @@
 #include <asio/write.hpp>
 #include <chrono>
 #include <memory>
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace rocket {
 
 TcpConnection::TcpConnection(asio::io_context *io_context, tcp::socket socket,
                              int buffer_size,
-                             TcpConnectionType type /*= TcpConnectionByServer*/)
-    : io_context_(io_context), socket_(std::move(socket)),
-      timer_(*io_context), in_buffer_(buffer_size),
-      out_buffer_(buffer_size), connection_type_(type) {
+                             ConnectionType type /*= TcpConnectionByServer*/)
+    : io_context_(io_context), socket_(std::move(socket)), timer_(*io_context),
+      in_buffer_(buffer_size), out_buffer_(buffer_size),
+      connection_type_(type) {
 
   local_addr_ = socket_.local_endpoint();
   peer_addr_ = socket_.remote_endpoint();
   timer_.expires_at(std::chrono::steady_clock::time_point::max());
-  coder_ = new TinyPBCoder();
+  coder_ = std::make_unique<TinyPBCoder>();
 }
 
-TcpConnection::~TcpConnection() {
-  DEBUGLOG("~TcpConnection");
-  if (coder_) {
-    delete coder_;
-    coder_ = NULL;
-  }
+TcpConnection::~TcpConnection() { 
+  DEBUGLOG("~TcpConnection"); 
+  // 确保socket被正确关闭
+	shutdown();
 }
 
 void TcpConnection::start() {
+
+	state_ = State::Connected;
   asio::co_spawn(
       *io_context_,
       [self = shared_from_this()]() -> awaitable<void> {
@@ -56,23 +57,34 @@ void TcpConnection::start() {
  */
 awaitable<void> TcpConnection::reader() {
   // 不断循环读取，每次完成读取执行excute()
-  try {
-    for (;;) {
-      if (!socket_.is_open()) {
-        ERRORLOG("onRead error, client has already disconneced, addr[%s]",
-                 peer_addr_.address().to_string().c_str());
-        co_return;
-      }
-      auto data_ptr = in_buffer_.getBuffer().prepare(in_buffer_.maxSize());
-      auto bytes_read = co_await asio::async_read(
-          socket_, data_ptr, asio::transfer_at_least(1), use_awaitable);
-      in_buffer_.commit(bytes_read);
-      execute();
+
+  for (;;) {
+    if (!is_open()) {
+      ERRORLOG("onRead error, client has already disconneced, addr[%s]",
+               peer_addr_.address().to_string().c_str());
+      co_return;
     }
-  } catch (std::exception &e) {
-    // TODO 停止？
-    ERRORLOG("onRead error, client has already disconneced, addr[%s]",
-             peer_addr_.address().to_string().c_str());
+    auto data_ptr = in_buffer_.getBuffer().prepare(in_buffer_.maxSize());
+    asio::error_code ec;
+    auto bytes_read =
+        co_await asio::async_read(socket_, data_ptr, asio::transfer_at_least(1),
+                                  redirect_error(use_awaitable, ec));
+    if (ec) {
+      if (ec == asio::error::operation_aborted) {
+        // 操作被取消，通常是主动关闭连接
+        INFOLOG("async_read was cancelled, connection closing, addr[%s]",
+                peer_addr_.address().to_string().c_str());
+      } else {
+        // 其他错误，通常是连接被对端关闭
+        ERRORLOG("async_read error, error info: %s, addr[%s]", 
+                 ec.message().c_str(),
+                 peer_addr_.address().to_string().c_str());
+				shutdown();
+      }
+      co_return;
+    }
+    in_buffer_.commit(bytes_read);
+    execute();
   }
 }
 
@@ -81,7 +93,7 @@ awaitable<void> TcpConnection::reader() {
  * 解码消息，进行不同处理
  */
 void TcpConnection::execute() {
-  if (connection_type_ == TcpConnectionByServer) {
+  if (connection_type_ == ConnectionType::TcpConnectionByServer) {
     // 将 RPC 请求执行业务逻辑，获取 RPC 响应, 再把 RPC 响应发送回去
     std::vector<AbstractProtocol::s_ptr> result;
     coder_->decode(result, in_buffer_);
@@ -128,77 +140,99 @@ void TcpConnection::reply(
  * 客户端：
  */
 awaitable<void> TcpConnection::writer() {
-  try {
-    while (socket_.is_open()) {
 
-      if (out_buffer_.dataSize() > 0 || write_dones_.size() > 0) {
-        // 客户端需要编码消息
-        if (connection_type_ == TcpConnectionByClient) {
-          // 1. 将 message encode 得到字节流
-          // 2. 将字节流入到 buffer 里面，然后全部发送
-          std::vector<AbstractProtocol::s_ptr> messages;
+  while (is_open()) {
 
-          for (size_t i = 0; i < write_dones_.size(); ++i) {
-            messages.push_back(write_dones_[i].first);
-          }
+    if (out_buffer_.dataSize() > 0 || write_dones_.size() > 0) {
+      // 客户端需要编码消息
+      if (connection_type_ == ConnectionType::TcpConnectionByClient) {
+        // 1. 将 message encode 得到字节流
+        // 2. 将字节流入到 buffer 里面，然后全部发送
+        std::vector<AbstractProtocol::s_ptr> messages;
 
-          coder_->encode(messages, out_buffer_);
+        for (size_t i = 0; i < write_dones_.size(); ++i) {
+          messages.push_back(write_dones_[i].first);
         }
 
-        // 错误处理
-        std::size_t bytes_write = co_await asio::async_write(
-            socket_, out_buffer_.getBuffer().data(), use_awaitable);
-        out_buffer_.consume(bytes_write);
-        INFOLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
-                peer_addr_.address().to_string().c_str());
-        if (connection_type_ == TcpConnectionByClient) {
-          for (size_t i = 0; i < write_dones_.size(); ++i) {
-            write_dones_[i].second(write_dones_[i].first);
-          }
-          write_dones_.clear();
-        }
-      } else {
-        asio::error_code ec;
-        co_await timer_.async_wait(redirect_error(use_awaitable, ec));
+        coder_->encode(messages, out_buffer_);
       }
+
+      // 错误处理
+      asio::error_code ec;
+      std::size_t bytes_write =
+          co_await asio::async_write(socket_, out_buffer_.getBuffer().data(),
+                                     redirect_error(use_awaitable, ec));
+      if (ec) {
+        if (ec == asio::error::operation_aborted) {
+          // 操作被取消，通常是主动关闭连接
+          INFOLOG("async_write was cancelled, connection closing, addr[%s]",
+                  peer_addr_.address().to_string().c_str());
+        } else {
+          // 其他错误，通常是连接被对端关闭
+          ERRORLOG("async_write error, error info: %s, addr[%s]", 
+                   ec.message().c_str(),
+                   peer_addr_.address().to_string().c_str());
+					shutdown();
+        }
+        co_return;
+      }
+
+      out_buffer_.consume(bytes_write);
+      INFOLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
+              peer_addr_.address().to_string().c_str());
+      if (connection_type_ == ConnectionType::TcpConnectionByClient) {
+        for (size_t i = 0; i < write_dones_.size(); ++i) {
+          write_dones_[i].second(write_dones_[i].first);
+        }
+        write_dones_.clear();
+      }
+    } else {
+      asio::error_code ec;
+      co_await timer_.async_wait(redirect_error(use_awaitable, ec));
+      // 不需要特别处理timer等待的错误，因为这通常是正常的通知机制
     }
-  } catch (std::exception &e) {
-    // TODO 错误处理
-    ERRORLOG("TcpConnection::writer error, error info: %s", e.what());
   }
 }
 
-bool TcpConnection::is_open() {
-  return socket_.is_open();
-}
+bool TcpConnection::is_open() { return state_ == State::Connected&&socket_.is_open(); }
 
 void TcpConnection::clear() {
-  // 处理一些关闭连接后的清理动作
-  if (state_ == Closed) {
-    return;
-  }
-  state_ = Closed;
+  // 关闭socket
+  asio::error_code ec;
+  
+  // 清空回调函数列表
+  write_dones_.clear();
+  read_dones_.clear();
+  
+  // 更新连接状态
+  state_ = State::Closed;
 }
 
+// todo 当前不支持shutdown，只支持close
 void TcpConnection::shutdown() {
-  if (state_ == Closed || state_ == NotConnected) {
+  if (state_ == State::Closed) {
     return;
   }
-
-  // 处于半关闭
-  state_ = HalfClosing;
-
-  // 调用 shutdown 关闭读写，意味着服务器不会再对这个 fd 进行读写操作了
-  // 发送 FIN 报文， 触发了四次挥手的第一个阶段
-  // 当 fd 发生可读事件，但是可读的数据为0，即 对端发送了 FIN
-  // ::shutdown(fd_, SHUT_RDWR);
+  
+  // 更新状态
+  state_ = State::Closed;
+  
+  socket_.cancel();
+  // 取消定时器
+  timer_.cancel();
+  // 关闭socket
+  socket_.close();
+  
+  // 清空缓冲区和回调列表
+  write_dones_.clear();
+  read_dones_.clear();
 }
 
-void TcpConnection::setConnectionType(TcpConnectionType type) {
+void TcpConnection::setConnectionType(ConnectionType type) {
   connection_type_ = type;
 }
 
-void TcpConnection::listenWrite() { timer_.cancel_one(); }
+void TcpConnection::listenWrite() { timer_.cancel(); }
 
 void TcpConnection::listenRead() {}
 

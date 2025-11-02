@@ -1,5 +1,6 @@
 #include "co_order_stub.h"
 #include "rpc_controller.h"
+#include "rocket/net/event_loop.h"
 #include <asio/awaitable.hpp>
 #include <asio/redirect_error.hpp>
 #include <asio/steady_timer.hpp>
@@ -11,7 +12,8 @@ CoOrderStub::coMakeOrder(google::protobuf::RpcController *controller,
                          const ::makeOrderRequest *request,
                          ::makeOrderResponse *response,
                          ::google::protobuf::Closure *done) {
-  asio::steady_timer timer(co_await asio::this_coro::executor,
+  rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
+  asio::steady_timer timer(*event_loop->getIOContext(),
                            std::chrono::steady_clock::time_point::max());
   static_cast<rocket::RpcController *>(controller)->SetWaiter(&timer);
   makeOrder(controller, request, response, done);

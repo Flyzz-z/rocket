@@ -27,6 +27,10 @@ public:
   void addTimer(int interval_ms, bool isRepeat, std::function<void()> cb);
   
 	asio::io_context *getIOContext();
+  
+  // 为IOThread等需要长期运行的场景提供work guard支持
+  void enableWorkGuard();
+  void disableWorkGuard();
 
 	static thread_local std::unique_ptr<EventLoop> t_event_loop_;
 
@@ -34,6 +38,7 @@ public:
 
 private:
   asio::io_context io_context_;
+  // 为需要长期运行的场景提供work_guard支持
   std::unique_ptr<asio::executor_work_guard<asio::io_context::executor_type>> work_guard_;
 };
 

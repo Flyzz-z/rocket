@@ -2,15 +2,13 @@
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
 #include <asio/steady_timer.hpp>
-#include <iostream>
 
 namespace rocket {
 
 thread_local std::unique_ptr<EventLoop> EventLoop::t_event_loop_ = nullptr;
 
 EventLoop::EventLoop() {
-  work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(
-      asio::make_work_guard(io_context_));
+  // 默认不创建work_guard
 }
 
 EventLoop *EventLoop::getThreadEventLoop() {
@@ -20,9 +18,13 @@ EventLoop *EventLoop::getThreadEventLoop() {
   return t_event_loop_.get();
 }
 
-EventLoop::~EventLoop() { stop(); }
+EventLoop::~EventLoop() { 
+  disableWorkGuard();
+}
 
-void EventLoop::run() { io_context_.run(); }
+void EventLoop::run() { 
+  io_context_.run(); 
+}
 
 void EventLoop::stop() { 
   work_guard_.reset();
@@ -30,6 +32,17 @@ void EventLoop::stop() {
 }
 
 asio::io_context *EventLoop::getIOContext() { return &io_context_; }
+
+void EventLoop::enableWorkGuard() {
+  if (!work_guard_) {
+    work_guard_ = std::make_unique<asio::executor_work_guard<asio::io_context::executor_type>>(
+        asio::make_work_guard(io_context_));
+  }
+}
+
+void EventLoop::disableWorkGuard() {
+  work_guard_.reset();
+}
 
 void EventLoop::addCoroutine(std::function<asio::awaitable<void>()> cb) {
   asio::co_spawn(io_context_, std::move(cb), asio::detached);

@@ -48,18 +48,27 @@ asio::awaitable<void> test_rpc_channel() {
     std::cout << "controller failed, error_code: " << controller->GetErrorCode()
               << ", error_info: " << controller->GetErrorInfo() << std::endl;
   }
+  
+  // 确保日志被刷新
+  rocket::Logger::GetGlobalLogger()->flush();
 }
 
 int main() {
 
   rocket::Config::SetGlobalConfig(NULL);
-  rocket::Logger::InitGlobalLogger(0);
+  rocket::Logger::InitGlobalLogger(1); // 启用异步日志处理器
   rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
 
   rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
   event_loop->addCoroutine(test_rpc_channel);
   event_loop->run();
 
+  // 停止etcd watcher以避免gRPC断言错误
+  rocket::EtcdRegistry::GetInstance()->stopWatcher();
+  
+  // 等待一段时间确保所有异步操作完成
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  
   std::cout << "test_rpc_channel end" << std::endl;
 
   return 0;

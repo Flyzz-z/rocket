@@ -10,10 +10,12 @@
 
 namespace rocket {
 
-TcpClient::TcpClient( tcp::endpoint peer_addr)
-    : peer_addr_(peer_addr),event_loop_(EventLoop::getThreadEventLoop()) {}
+TcpClient::TcpClient(tcp::endpoint peer_addr)
+    : peer_addr_(peer_addr), event_loop_(EventLoop::getThreadEventLoop()) {}
 
-TcpClient::~TcpClient() {}
+TcpClient::~TcpClient() {
+	stop();
+}
 
 EventLoop *TcpClient::getEventLoop() { return event_loop_; }
 
@@ -24,17 +26,19 @@ asio::awaitable<void> TcpClient::connect() {
     co_await socket.async_connect(peer_addr_, asio::use_awaitable);
     local_addr_ = socket.local_endpoint();
     peer_addr_ = socket.remote_endpoint();
-    connection_ = std::make_shared<TcpConnection>(io_context, std::move(socket),
-                                                  128, TcpConnectionByClient);
+    connection_ = std::make_shared<TcpConnection>(
+        io_context, std::move(socket), 128,
+        TcpConnection::ConnectionType::TcpConnectionByClient);
     connection_->start();
   } catch (std::exception &e) {
     INFOLOG("tcp connect error %s", e.what());
-    // connect_error_code_ = ErrorCode::TCP_CONNECT_ERROR;
     connect_error_info_ = std::string("tcp connect exception: ") + e.what();
   }
 }
 
-void TcpClient::stop() {}
+void TcpClient::stop() {
+	connection_->shutdown();
+}
 
 // 异步的发送 message
 // 如果发送 message 成功，会调用 done 函数， 函数的入参就是 message 对象

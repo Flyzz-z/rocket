@@ -14,7 +14,13 @@ namespace rocket {
 EtcdRegistry::EtcdRegistry()
     : all_service_map_(bucket_size_), bucket_mutex_(bucket_size_),
       watching_(false) {}
-EtcdRegistry::~EtcdRegistry() { stopWatcher(); }
+      
+EtcdRegistry::~EtcdRegistry() { 
+  stopWatcher(); 
+  
+  // 清理keep alive资源
+  keep_alives_.clear();
+}
 
 void EtcdRegistry::init(const std::string &ip, int port,
                         const std::string &username,
@@ -166,7 +172,7 @@ void EtcdRegistry::stopWatcher() {
     if (watcher_) {
       // 注意：etcd-cpp-api的Watcher可能没有直接的停止方法
       // 这里可能需要根据具体实现进行调整
-      watcher_.reset();
+			watcher_->Cancel();
     }
 
     if (watcher_thread_ && watcher_thread_->joinable()) {
