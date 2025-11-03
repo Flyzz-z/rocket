@@ -147,8 +147,108 @@ struct task {
     coroutine_handle<promise_type> handle_;
 };
 ```
-
 ### 网络组件封装
+异步系统调用封装,实现了awaiter相关函数。
+1. bool await_ready() : 总是挂起
+2. bool await_suspend(std::coroutine_handle<> h) : 调用一次Syscall函数，成功返回，需要等待则挂起。
+3. ReturnValue await_resume() : epoll事件触发后，进行系统调用返回调用结果。
+```C++
+template<typename Syscall, typename ReturnValue>
+class AsyncSyscall {
+public:
+    AsyncSyscall() : suspended_(false) {}
 
+    bool await_ready() const noexcept { return false; }
 
+    bool await_suspend(std::coroutine_handle<> h) noexcept {
+        static_assert(std::is_base_of_v<AsyncSyscall, Syscall>);
+        handle_ = h;
+        value_ = static_cast<Syscall*>(this)->Syscall();
+        suspended_ = value_ == -1 && (errno == EAGAIN || errno == EWOULDBLOCK);
+        if(suspended_) {
+            // 设置每个操作的coroutine handle，recv/send在适当的epoll事件发生后才能正常调用
+            static_cast<Syscall*>(this)->SetCoroHandle();
+        }
+        return suspended_;
+    }
 
+    ReturnValue await_resume() noexcept {
+        std::cout<<"await_resume\n";
+        if(suspended_) {
+            value_ = static_cast<Syscall*>(this)->Syscall();
+        }
+        return value_;
+    }
+protected:
+    bool suspended_;
+    // 当前awaiter所在协程的handle，需要设置给socket的coro_recv_或是coro_send_来读写数据
+    // handle_不是在构造函数中设置的，所以在子类的构造函数中也无法获取，必须在await_suspend以后才能设置
+    std::coroutine_handle<> handle_;
+    ReturnValue value_;
+};
+```
+具体实现包含Accept,Send,Recv，通过继承实现，并实现Syscall()和SetCoroHandle()函数。这里用Accept类为例。Accept类的Syscall()函数实际是accept系统调用，SetCoroHandle()函数实际是设置socket的coro_recv_成员变量，即接受协程（accept监听EPOLLIN事件）。 构造函数中.WatchRead(socket_)，实际上是加入epoll监听socket_的EPOLLIN事件，触发时调用socket的coro_recv_成员变量的resume()函数。
+```C++
+class Accept : public AsyncSyscall<Accept, int> {
+public:
+    Accept(Socket* socket) : AsyncSyscall{}, socket_(socket) {
+        socket_->io_context_.WatchRead(socket_);
+        std::cout<<" socket accept opertion\n";
+    }
+
+    ~Accept() {
+        socket_->io_context_.UnwatchRead(socket_);
+        std::cout<<"~socket accept operation\n";
+    }
+
+    int Syscall() {
+        struct sockaddr_storage addr;
+        socklen_t addr_size = sizeof(addr);
+        std::cout<<"accept "<<socket_->fd_<<"\n";
+        return ::accept(socket_->fd_, (struct sockaddr*)&addr, &addr_size);
+    }
+
+    void SetCoroHandle() {
+        socket_->coro_recv_ = handle_;
+    }
+private:
+    Socket* socket_;
+    void* buffer_;
+    std::size_t len_;
+};
+```
+Socket中实际调用,Socket::accept协程中直接co_await Accept对象。
+```C++
+task<std::shared_ptr<Socket>> Socket::accept() {
+    int fd = co_await Accept{this};
+    if(fd == -1) {
+        throw std::runtime_error{"accept error"};
+    }
+    co_return std::shared_ptr<Socket>(new Socket{fd, io_context_});
+}
+```
+#### 事件循环
+创建一个io_context对象，并调用Run()函数，该函数会创建一个epoll句柄，并开始监听socket_fd_，当socket_fd_有事件发生时，会调用epoll_wait()函数，并调用socket的coro_recv_或者coro_send_的resume()函数。
+```C++
+void IoContext::run() {
+    struct epoll_event ev, events[max_events];
+    for(;;) {
+        int nfds = epoll_wait(fd_, events, max_events, -1);
+        if(nfds == -1) {
+            throw std::runtime_error{"epoll_wait"};
+        }
+
+        for(int i = 0; i < nfds; ++i) {
+            auto socket = static_cast<Socket*>(events[i].data.ptr);
+            if(events[i].events & EPOLLIN) {
+                socket->ResumeRecv();
+            }
+            if(events[i].events & EPOLLOUT) {
+                socket->ResumeSend();
+            }
+        }
+    }
+}
+```
+
+通过这些组件实现echo服务器可以参见代码仓库。
