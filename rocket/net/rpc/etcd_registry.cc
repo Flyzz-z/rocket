@@ -170,8 +170,6 @@ void EtcdRegistry::stopWatcher() {
     watching_.store(false);
 
     if (watcher_) {
-      // 注意：etcd-cpp-api的Watcher可能没有直接的停止方法
-      // 这里可能需要根据具体实现进行调整
 			watcher_->Cancel();
     }
 

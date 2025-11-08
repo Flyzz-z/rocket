@@ -1,5 +1,15 @@
 {
 	"clangd.arguments": [
 		"--compile-commands-dir=${workspaceFolder}/build"
+	],
+	"claudeCode.environmentVariables": [
+		{
+			"name": "ANTHROPIC_AUTH_TOKEN",
+			"value": "sk-nc34lG7uU0VBFVX94yQhGq8niFYxM3J0EoQjpEFGwGpZjcSZ"
+		},
+		{
+			"name": "ANTHROPIC_BASE_URL",
+			"value": "https://anyrouter.top"
+		}
 	]
 }

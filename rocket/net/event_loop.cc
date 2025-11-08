@@ -14,6 +14,7 @@ EventLoop::EventLoop() {
 EventLoop *EventLoop::getThreadEventLoop() {
   if (t_event_loop_ == nullptr) {
     t_event_loop_ = std::make_unique<EventLoop>();
+		
   }
   return t_event_loop_.get();
 }

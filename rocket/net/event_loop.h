@@ -21,7 +21,6 @@ public:
   void run();
   void stop();
   
-  // 使用std::function替代模板约束
   void addCoroutine(std::function<asio::awaitable<void>()> cb);
   
   void addTimer(int interval_ms, bool isRepeat, std::function<void()> cb);
