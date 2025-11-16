@@ -57,7 +57,9 @@ int main() {
 
   rocket::Config::SetGlobalConfig(NULL);
   rocket::Logger::InitGlobalLogger(1); // 启用异步日志处理器
-  rocket::EtcdRegistry::init("127.0.0.1", 2379, "root", "123456");
+
+  // 客户端初始化: 仅用于服务发现,不注册任何服务
+  rocket::EtcdRegistry::initAsClient("127.0.0.1", 2379, "root", "123456");
 
   rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
   event_loop->addCoroutine(test_rpc_channel);

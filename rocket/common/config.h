@@ -15,6 +15,13 @@ struct RpcStub {
   int timeout{2000};
 };
 
+// 服务端提供的服务配置
+struct ServiceConfig {
+  std::string name;  // 服务名称
+  std::string ip;    // 服务IP
+  int port{0};       // 服务端口
+};
+
 struct EtcdConfig {
   std::string ip;
   int port{0};
@@ -46,7 +53,11 @@ public:
 
   TiXmlDocument *xml_document_{NULL};
 
+  // 客户端调用的下游服务配置(用于服务发现)
   std::map<std::string, RpcStub> rpc_stubs_;
+
+  // 服务端提供的服务列表(需要注册到etcd)
+  std::vector<ServiceConfig> provided_services_;
 
 	EtcdConfig etcd_config_;
 };

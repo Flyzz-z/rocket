@@ -50,10 +50,11 @@ int main(int argc, char *argv[]) {
 
   rocket::Logger::InitGlobalLogger(0);
 
-	// 注册etcd服务
-  rocket::EtcdRegistry::initFromConfig();
+  // 服务端初始化: 从配置文件读取并注册所有提供的服务
+  rocket::EtcdRegistry::initAsServerFromConfig();
+
   std::shared_ptr<OrderImpl> service = std::make_shared<OrderImpl>();
-	// 注册服务实现
+  // 注册服务实现到RPC分发器
   rocket::RpcDispatcher::GetRpcDispatcher()->registerService(service);
 
   asio::ip::address addr = asio::ip::address::from_string("192.168.124.128");

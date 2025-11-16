@@ -108,6 +108,28 @@ Config::Config(const char* xmlfile) {
     }
   }
 
+  // 解析服务端提供的服务列表
+  TiXmlElement* services_node = root_node->FirstChildElement("services");
+  if (services_node) {
+    for (TiXmlElement* node = services_node->FirstChildElement("service"); node; node = node->NextSiblingElement("service")) {
+      ServiceConfig service;
+
+      TiXmlElement* name_elem = node->FirstChildElement("name");
+      TiXmlElement* ip_elem = node->FirstChildElement("ip");
+      TiXmlElement* port_elem = node->FirstChildElement("port");
+
+      if (name_elem && ip_elem && port_elem) {
+        service.name = std::string(name_elem->GetText());
+        service.ip = std::string(ip_elem->GetText());
+        service.port = std::atoi(port_elem->GetText());
+
+        provided_services_.push_back(service);
+        printf("Loaded service config: %s at %s:%d\n",
+               service.name.c_str(), service.ip.c_str(), service.port);
+      }
+    }
+  }
+
 	TiXmlElement* etcd_node = root_node->FirstChildElement("etcd");
 	if(etcd_node) {
 		std::string etcd_ip = std::string(etcd_node->FirstChildElement("ip")->GetText());

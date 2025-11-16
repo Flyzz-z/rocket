@@ -19,10 +19,21 @@ public:
   EtcdRegistry();
   ~EtcdRegistry();
 
-  static void init(const std::string &ip, int port, const std::string &username,
-                   const std::string &password);
-  static void initFromConfig();
-  static void registerServicesFromConfig();
+  // 服务端初始化: 会注册本地服务到etcd
+  static void initAsServer(const std::string &ip, int port,
+                           const std::string &username,
+                           const std::string &password,
+                           const std::string &service_name,
+                           const std::string &service_ip,
+                           int service_port);
+
+  // 服务端从配置文件初始化: 自动注册配置中的所有服务
+  static void initAsServerFromConfig();
+
+  // 客户端初始化: 仅连接etcd用于服务发现
+  static void initAsClient(const std::string &ip, int port,
+                           const std::string &username,
+                           const std::string &password);
 
   bool registerService(const std::string &service_name,
                        const std::string &service_ip, int service_port);

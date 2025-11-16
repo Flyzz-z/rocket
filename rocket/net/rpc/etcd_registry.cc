@@ -22,9 +22,12 @@ EtcdRegistry::~EtcdRegistry() {
   keep_alives_.clear();
 }
 
-void EtcdRegistry::init(const std::string &ip, int port,
-                        const std::string &username,
-                        const std::string &password) {
+void EtcdRegistry::initAsServer(const std::string &ip, int port,
+                                const std::string &username,
+                                const std::string &password,
+                                const std::string &service_name,
+                                const std::string &service_ip,
+                                int service_port) {
   auto instance = EtcdRegistry::GetInstance();
   std::string addr = ip + ":" + std::to_string(port);
   instance->etcd_client_ =
@@ -32,14 +35,54 @@ void EtcdRegistry::init(const std::string &ip, int port,
   instance->ip_ = ip;
   instance->port_ = port;
 
-	instance->startWatcher();
+  // 服务端不需要启动watcher监听变化,只需要注册服务即可
+  INFOLOG("EtcdRegistry initialized as SERVER mode");
+
+  // 注册本服务
+  instance->registerService(service_name, service_ip, service_port);
 }
 
-void EtcdRegistry::initFromConfig() {
+void EtcdRegistry::initAsServerFromConfig() {
   auto config = Config::GetGlobalConfig();
-  init(config->etcd_config_.ip, config->etcd_config_.port,
-       config->etcd_config_.username, config->etcd_config_.password);
-  registerServicesFromConfig();
+  if (!config) {
+    ERRORLOG("Config not initialized, call Config::SetGlobalConfig first");
+    return;
+  }
+
+  auto instance = EtcdRegistry::GetInstance();
+  std::string addr = config->etcd_config_.ip + ":" + std::to_string(config->etcd_config_.port);
+  instance->etcd_client_ = std::make_unique<etcd::Client>(
+      addr, config->etcd_config_.username, config->etcd_config_.password);
+  instance->ip_ = config->etcd_config_.ip;
+  instance->port_ = config->etcd_config_.port;
+
+  INFOLOG("EtcdRegistry initialized as SERVER mode from config");
+
+  // 注册配置中的所有服务
+  for (const auto &service : config->provided_services_) {
+    INFOLOG("Registering service: %s at %s:%d",
+            service.name.c_str(), service.ip.c_str(), service.port);
+    instance->registerService(service.name, service.ip, service.port);
+  }
+
+  if (config->provided_services_.empty()) {
+    INFOLOG("Warning: No services configured in <services> section");
+  }
+}
+
+void EtcdRegistry::initAsClient(const std::string &ip, int port,
+                                const std::string &username,
+                                const std::string &password) {
+  auto instance = EtcdRegistry::GetInstance();
+  std::string addr = ip + ":" + std::to_string(port);
+  instance->etcd_client_ =
+      std::make_unique<etcd::Client>(addr, username, password);
+  instance->ip_ = ip;
+  instance->port_ = port;
+
+  // 客户端需要启动watcher监听服务变化
+  instance->startWatcher();
+  INFOLOG("EtcdRegistry initialized as CLIENT mode with watcher");
 }
 
 bool EtcdRegistry::registerService(const std::string &service_name,
@@ -233,16 +276,6 @@ void EtcdRegistry::removeServiceFromCache(const std::string &key) {
     keyServiceMap.erase(service_name);
     INFOLOG("Removed service %s from cache due to etcd watch event",
             service_name.c_str());
-  }
-}
-
-void EtcdRegistry::registerServicesFromConfig() {
-
-  auto config = Config::GetGlobalConfig();
-  auto instance = EtcdRegistry::GetInstance();
-  for (const auto &[service_name, stub] : config->rpc_stubs_) {
-    instance->registerService(service_name, stub.addr.address().to_string(),
-                              stub.addr.port());
   }
 }
 

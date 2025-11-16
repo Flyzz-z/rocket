@@ -13,6 +13,23 @@
     <io_threads>4</io_threads>
   </server>
 
+  <!-- 服务端提供的服务列表(会注册到etcd) -->
+  <services>
+    <service>
+      <name>Order</name>
+      <ip>192.168.124.128</ip>
+      <port>12345</port>
+    </service>
+    <!-- 可以添加更多服务 -->
+    <!--
+    <service>
+      <name>Payment</name>
+      <ip>192.168.124.128</ip>
+      <port>12345</port>
+    </service>
+    -->
+  </services>
+
 	<etcd>
 		<ip>127.0.0.1</ip>
 		<port>2379</port>
@@ -22,15 +39,15 @@
 	</etcd>
 
 
+  <!-- 客户端调用的下游服务配置(用于服务发现) -->
   <stubs>
     <rpc_server>
-      <!-- 默认配置 -->
-      <!-- 调用下游RPC 服务时，需要将其 ip port 配置在此处 -->
+      <!-- 当本服务作为客户端调用其他RPC服务时使用 -->
       <name>Order</name>
       <ip>192.168.124.128</ip>
       <port>12345</port>
       <timeout>1000</timeout>
-    </rpc_server> 
+    </rpc_server>
   </stubs>
 
 
