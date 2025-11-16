@@ -79,6 +79,9 @@ target_link_libraries(test_rpc_client rocket ${ETCD_CPP_LIB})
 add_executable(test_rpc_server testcases/test_rpc_server.cc ${PROTO_DIR}/order.pb.cc ${PROTO_DIR}/co_stub/co_order_stub.cc)
 target_link_libraries(test_rpc_server rocket ${ETCD_CPP_LIB})
 
+add_executable(test_rpc_bench testcases/test_rpc_bench.cc ${PROTO_DIR}/order.pb.cc ${PROTO_DIR}/co_stub/co_order_stub.cc)
+target_link_libraries(test_rpc_bench rocket ${ETCD_CPP_LIB})
+
 # 安装规则
 install(TARGETS rocket
     ARCHIVE DESTINATION /usr/local/lib
