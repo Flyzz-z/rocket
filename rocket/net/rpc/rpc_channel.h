@@ -4,6 +4,7 @@
 #include "rocket/net/tcp/tcp_client.h"
 #include <google/protobuf/service.h>
 #include <memory>
+#include <asio/steady_timer.hpp>
 
 namespace rocket {
 
@@ -40,9 +41,6 @@ public:
 
 public:
   // 获取 addr
-  // 若 str 是 ip:port, 直接返回
-  // 否则认为是 rpc 服务名，尝试从配置文件里面获取对应的
-  // ip:port（后期会加上服务发现）
   static std::vector<tcp::endpoint> FindAddr(const std::string &str);
 
 public:
@@ -85,7 +83,10 @@ private:
   tcp::endpoint local_addr_;
   TcpClient::s_ptr client_;
   int client_id_;
-	
+
+  // 用于存储超时定时器，以便在收到响应时取消
+  std::shared_ptr<asio::steady_timer> timeout_timer_;
+
 };
 
 } // namespace rocket

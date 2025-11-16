@@ -14,6 +14,7 @@
 #include <asio/ip/address.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/steady_timer.hpp>
+#include <asio/redirect_error.hpp>
 #include <cstddef>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
@@ -33,6 +34,12 @@ void RpcChannel::callBack() {
   // 如果finsh直接返回，即便rpc返回结果，也会返回
   if (my_controller->Finished()) {
     return;
+  }
+
+  // 取消超时定时器
+  if (timeout_timer_) {
+    timeout_timer_->cancel();
+    timeout_timer_.reset();
   }
 
   if (closure_) {
@@ -138,29 +145,49 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
   s_ptr channel = shared_from_this();
 
-  // 使用协程实现超时控制
+  // 获取事件循环
   EventLoop *event_loop = client_->getEventLoop();
   if (!event_loop) {
     ERRORLOG("RpcChannel::CallMethod event_loop nullptr");
+    my_controller->SetError(ERROR_RPC_CHANNEL_INIT, "event_loop nullptr");
+    callBack();
+    return;
   }
 
-  event_loop->addTimer(
-      my_controller->GetTimeout(), false, [my_controller, channel]() mutable {
-        INFOLOG("%s | call rpc timeout arrive",
-                my_controller->GetMsgId().c_str());
-        if (my_controller->Finished()) {
-          channel.reset();
-          return;
-        }
+  // 创建超时定时器并保存引用
+  timeout_timer_ = std::make_shared<asio::steady_timer>(
+      *event_loop->getIOContext(),
+      std::chrono::milliseconds(my_controller->GetTimeout()));
 
-        my_controller->StartCancel();
-        my_controller->SetError(
-            ERROR_RPC_CALL_TIMEOUT,
-            "rpc call timeout " + std::to_string(my_controller->GetTimeout()));
+  // 使用协程实现超时控制
+  event_loop->addCoroutine([this, my_controller, channel]() mutable -> asio::awaitable<void> {
+    asio::error_code ec;
+    co_await timeout_timer_->async_wait(asio::redirect_error(asio::use_awaitable, ec));
 
-        channel->callBack();
-        channel.reset();
-      });
+    // 如果定时器被取消（收到响应），直接返回
+    if (ec == asio::error::operation_aborted) {
+      INFOLOG("%s | timeout timer cancelled, rpc already completed",
+              my_controller->GetMsgId().c_str());
+      channel.reset();
+      co_return;
+    }
+
+    INFOLOG("%s | call rpc timeout arrive",
+            my_controller->GetMsgId().c_str());
+
+    if (my_controller->Finished()) {
+      channel.reset();
+      co_return;
+    }
+
+    my_controller->StartCancel();
+    my_controller->SetError(
+        ERROR_RPC_CALL_TIMEOUT,
+        "rpc call timeout " + std::to_string(my_controller->GetTimeout()));
+
+    channel->callBack();
+    channel.reset();
+  });
 
   event_loop->addCoroutine([this, req_protocol, my_controller,
                             channel]() mutable -> asio::awaitable<void> {
