@@ -64,9 +64,6 @@ target_link_libraries(rocket
 set(PROTO_DIR ${CMAKE_SOURCE_DIR}/testcases/proto)
 
 # 添加测试可执行文件
-add_executable(test_log testcases/test_log.cc)
-target_link_libraries(test_log rocket)
-
 add_executable(test_tcp testcases/test_tcp.cc)
 target_link_libraries(test_tcp rocket)
 

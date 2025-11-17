@@ -16,8 +16,8 @@ using asio::ip::tcp;
 class RpcController : public google::protobuf::RpcController {
 
  public:
-  RpcController() { INFOLOG("RpcController"); } 
-  ~RpcController() { INFOLOG("~RpcController"); } 
+  RpcController() { DEBUGLOG("RpcController"); }
+  ~RpcController() { DEBUGLOG("~RpcController"); } 
 
   void Reset() override;
 

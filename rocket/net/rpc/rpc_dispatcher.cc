@@ -73,7 +73,7 @@ void RpcDispatcher::dispatch(AbstractProtocol::s_ptr request, AbstractProtocol::
     return;
   }
 
-  INFOLOG("%s | get rpc request[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str());
+  DEBUGLOG("%s | get rpc request[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str());
 
   google::protobuf::Message* rsp_msg = service->GetResponsePrototype(method).New();
 
@@ -92,7 +92,7 @@ void RpcDispatcher::dispatch(AbstractProtocol::s_ptr request, AbstractProtocol::
     } else {
       rsp_protocol->err_code_ = 0;
       rsp_protocol->err_info_ = "";
-      INFOLOG("%s | dispatch success, requesut[%s], response[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str(), rsp_msg->ShortDebugString().c_str());
+      DEBUGLOG("%s | dispatch success, requesut[%s], response[%s]", req_protocol->msg_id_.c_str(), req_msg->ShortDebugString().c_str(), rsp_msg->ShortDebugString().c_str());
     }
 
     std::vector<AbstractProtocol::s_ptr> replay_messages;

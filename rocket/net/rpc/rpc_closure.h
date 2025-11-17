@@ -16,11 +16,11 @@ class RpcClosure : public google::protobuf::Closure {
   typedef std::shared_ptr<RpcInterface> it_s_ptr;
 
   RpcClosure(it_s_ptr interface, std::function<void()> cb) : rpc_interface_(interface), cb_(cb) {
-    INFOLOG("RpcClosure");
+    DEBUGLOG("RpcClosure");
   }
 
   ~RpcClosure() {
-    INFOLOG("~RpcClosure");
+    DEBUGLOG("~RpcClosure");
   }
 
   void Run() override {

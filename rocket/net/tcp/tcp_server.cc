@@ -55,7 +55,7 @@ awaitable<void> TcpServer::listener() {
     }
     EventLoop* run_event_loop = io_thread_group_->getIOThread()->getEventLoop();
     auto run_io_context = run_event_loop->getIOContext();
-    INFOLOG("TcpServer succ get client, address=%s",
+    DEBUGLOG("TcpServer succ get client, address=%s",
             socket.remote_endpoint().address().to_string().c_str());
     std::shared_ptr<TcpConnection> connection =
         std::make_shared<TcpConnection>(run_io_context, std::move(socket),

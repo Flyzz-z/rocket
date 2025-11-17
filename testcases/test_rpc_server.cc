@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
   rocket::Config::SetGlobalConfig(argv[1]);
 
-  rocket::Logger::InitGlobalLogger(0);
+  rocket::Logger::InitGlobalLogger();
 
   // 服务端初始化: 从配置文件读取并注册所有提供的服务
   rocket::EtcdRegistry::initAsServerFromConfig();

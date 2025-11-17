@@ -26,3 +26,9 @@ compile_commands.json
 *.dylib
 
 .cache/
+.vscode/
+.idea/
+.project
+.settings/
+.classpath
+

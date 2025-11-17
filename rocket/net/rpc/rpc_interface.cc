@@ -8,11 +8,11 @@ namespace rocket {
 
 RpcInterface::RpcInterface(const google::protobuf::Message* req, google::protobuf::Message* rsp, RpcClosure* done, RpcController* controller)
   : req_base_(req), rsp_base_(rsp), done_(done) , controller_(controller) {
-    INFOLOG("RpcInterface");
+    DEBUGLOG("RpcInterface");
 }
 
 RpcInterface::~RpcInterface() {
-  INFOLOG("~RpcInterface");
+  DEBUGLOG("~RpcInterface");
 
   reply();
 

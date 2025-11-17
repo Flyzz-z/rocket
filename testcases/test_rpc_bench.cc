@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <cmath>
+#include <memory>
 #include "rocket/common/config.h"
 #include "rocket/common/log.h"
 #include "rocket/net/event_loop.h"
@@ -14,83 +15,129 @@
 #include "proto/co_stub/co_order_stub.h"
 #include "rpc_controller.h"
 
-// 性能统计类
+// 线程本地统计结构
+struct ThreadLocalStats {
+  int64_t total_requests = 0;
+  int64_t successful_requests = 0;
+  int64_t failed_requests = 0;
+  int64_t total_latency_us = 0;
+  std::vector<int64_t> latencies;
+
+  // 预分配空间避免频繁重新分配
+  ThreadLocalStats() {
+    latencies.reserve(100000);  // 预分配10万个延迟记录空间
+  }
+};
+
+// 性能统计类 - 无锁设计
 class BenchmarkStats {
 public:
   void recordRequest(int64_t latency_us, bool success) {
-    total_requests_.fetch_add(1);
-    if (success) {
-      successful_requests_.fetch_add(1);
-      total_latency_us_.fetch_add(latency_us);
+    // 获取线程本地统计，使用 shared_ptr 管理生命周期
+    thread_local std::shared_ptr<ThreadLocalStats> local_stats;
+    thread_local bool registered = false;
 
-      // 记录延迟分布
-      latencies_mutex_.lock();
-      latencies_.push_back(latency_us);
-      latencies_mutex_.unlock();
+    // 第一次使用时创建并注册到全局列表
+    if (!registered) {
+      local_stats = std::make_shared<ThreadLocalStats>();
+      std::lock_guard<std::mutex> lock(stats_mutex_);
+      thread_stats_.push_back(local_stats);
+      registered = true;
+    }
+
+    // 无锁更新线程本地统计
+    local_stats->total_requests++;
+    if (success) {
+      local_stats->successful_requests++;
+      local_stats->total_latency_us += latency_us;
+      local_stats->latencies.push_back(latency_us);
     } else {
-      failed_requests_.fetch_add(1);
+      local_stats->failed_requests++;
     }
   }
 
   void printStats(int duration_sec) {
+    // 汇总所有线程的统计
+    int64_t total_requests = 0;
+    int64_t successful_requests = 0;
+    int64_t failed_requests = 0;
+    int64_t total_latency_us = 0;
+    std::vector<int64_t> all_latencies;
+
+    {
+      std::lock_guard<std::mutex> lock(stats_mutex_);
+      // 预估总延迟数量
+      size_t total_count = 0;
+      for (auto& stats : thread_stats_) {
+        total_count += stats->latencies.size();
+      }
+      all_latencies.reserve(total_count);
+
+      // 汇总所有线程的数据
+      for (auto& stats : thread_stats_) {
+        total_requests += stats->total_requests;
+        successful_requests += stats->successful_requests;
+        failed_requests += stats->failed_requests;
+        total_latency_us += stats->total_latency_us;
+        all_latencies.insert(all_latencies.end(),
+                            stats->latencies.begin(),
+                            stats->latencies.end());
+      }
+    }
+
     std::cout << "\n========== Benchmark Results ==========\n";
     std::cout << "Duration: " << duration_sec << " seconds\n";
-    std::cout << "Total Requests: " << total_requests_.load() << "\n";
-    std::cout << "Successful: " << successful_requests_.load() << "\n";
-    std::cout << "Failed: " << failed_requests_.load() << "\n";
+    std::cout << "Total Requests: " << total_requests << "\n";
+    std::cout << "Successful: " << successful_requests << "\n";
+    std::cout << "Failed: " << failed_requests << "\n";
 
-    double success_rate = (total_requests_.load() > 0)
-        ? (100.0 * successful_requests_.load() / total_requests_.load())
+    double success_rate = (total_requests > 0)
+        ? (100.0 * successful_requests / total_requests)
         : 0.0;
     std::cout << "Success Rate: " << std::fixed << std::setprecision(2)
               << success_rate << "%\n";
 
     double qps = (duration_sec > 0)
-        ? (1.0 * successful_requests_.load() / duration_sec)
+        ? (1.0 * successful_requests / duration_sec)
         : 0.0;
     std::cout << "QPS: " << std::fixed << std::setprecision(2) << qps << "\n";
 
-    if (successful_requests_.load() > 0) {
-      double avg_latency = 1.0 * total_latency_us_.load() / successful_requests_.load();
+    if (successful_requests > 0) {
+      double avg_latency = 1.0 * total_latency_us / successful_requests;
       std::cout << "Average Latency: " << std::fixed << std::setprecision(2)
                 << avg_latency / 1000.0 << " ms\n";
 
       // 计算延迟百分位
-      latencies_mutex_.lock();
-      std::sort(latencies_.begin(), latencies_.end());
-      size_t count = latencies_.size();
-      if (count > 0) {
+      if (!all_latencies.empty()) {
+        std::sort(all_latencies.begin(), all_latencies.end());
+        size_t count = all_latencies.size();
         std::cout << "Latency Distribution:\n";
-        std::cout << "  P50: " << latencies_[count * 50 / 100] / 1000.0 << " ms\n";
-        std::cout << "  P75: " << latencies_[count * 75 / 100] / 1000.0 << " ms\n";
-        std::cout << "  P90: " << latencies_[count * 90 / 100] / 1000.0 << " ms\n";
-        std::cout << "  P95: " << latencies_[count * 95 / 100] / 1000.0 << " ms\n";
-        std::cout << "  P99: " << latencies_[count * 99 / 100] / 1000.0 << " ms\n";
-        std::cout << "  Max: " << latencies_[count - 1] / 1000.0 << " ms\n";
+        std::cout << "  P50: " << all_latencies[count * 50 / 100] / 1000.0 << " ms\n";
+        std::cout << "  P75: " << all_latencies[count * 75 / 100] / 1000.0 << " ms\n";
+        std::cout << "  P90: " << all_latencies[count * 90 / 100] / 1000.0 << " ms\n";
+        std::cout << "  P95: " << all_latencies[count * 95 / 100] / 1000.0 << " ms\n";
+        std::cout << "  P99: " << all_latencies[count * 99 / 100] / 1000.0 << " ms\n";
+        std::cout << "  Max: " << all_latencies[count - 1] / 1000.0 << " ms\n";
       }
-      latencies_mutex_.unlock();
     }
     std::cout << "=======================================\n";
   }
 
   void reset() {
-    total_requests_.store(0);
-    successful_requests_.store(0);
-    failed_requests_.store(0);
-    total_latency_us_.store(0);
-    latencies_mutex_.lock();
-    latencies_.clear();
-    latencies_mutex_.unlock();
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    for (auto& stats : thread_stats_) {
+      stats->total_requests = 0;
+      stats->successful_requests = 0;
+      stats->failed_requests = 0;
+      stats->total_latency_us = 0;
+      stats->latencies.clear();
+    }
+    thread_stats_.clear();
   }
 
 private:
-  std::atomic<int64_t> total_requests_{0};
-  std::atomic<int64_t> successful_requests_{0};
-  std::atomic<int64_t> failed_requests_{0};
-  std::atomic<int64_t> total_latency_us_{0};
-
-  std::mutex latencies_mutex_;
-  std::vector<int64_t> latencies_;
+  std::mutex stats_mutex_;
+  std::vector<std::shared_ptr<ThreadLocalStats>> thread_stats_;
 };
 
 // 全局统计对象
@@ -225,7 +272,7 @@ int main(int argc, char* argv[]) {
 
   // 初始化
   rocket::Config::SetGlobalConfig(NULL);
-  rocket::Logger::InitGlobalLogger(1);
+  rocket::Logger::InitGlobalLogger();
   rocket::EtcdRegistry::initAsClient("127.0.0.1", 2379, "root", "123456");
 
   std::cout << "========== Benchmark Configuration ==========\n";
@@ -246,46 +293,98 @@ int main(int argc, char* argv[]) {
   }
   std::cout << "=============================================\n\n";
 
-  // 创建事件循环
-  rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
+  // 计算线程和协程分配
+  int num_threads = 2;
+  if (num_threads == 0) num_threads = 2;  // 默认2线程
+  if (num_threads > concurrency) num_threads = concurrency;  // 线程数不超过并发数
+
+  int coroutines_per_thread = concurrency / num_threads;
+  int remaining_coroutines = concurrency % num_threads;
+
+  std::cout << "Thread Configuration:\n";
+  std::cout << "  Hardware Threads: " << std::thread::hardware_concurrency() << "\n";
+  std::cout << "  Benchmark Threads: " << num_threads << "\n";
+  std::cout << "  Coroutines per Thread: " << coroutines_per_thread;
+  if (remaining_coroutines > 0) {
+    std::cout << " (+" << remaining_coroutines << " on first thread)";
+  }
+  std::cout << "\n\n";
 
   auto start_time = std::chrono::steady_clock::now();
 
-  // 启动压测协程
-  if (mode_total) {
-    // 模式1: 总请求数模式
-    int requests_per_worker = total_requests / concurrency;
-    for (int i = 0; i < concurrency; ++i) {
-      event_loop->addCoroutine([i, requests_per_worker]() -> asio::awaitable<void> {
-        co_await continuousBenchmark(i, requests_per_worker);
-      });
-    }
-  } else if (mode_qps) {
-    // 模式2: QPS控制模式
-    int qps_per_worker = target_qps / concurrency;
-    for (int i = 0; i < concurrency; ++i) {
-      event_loop->addCoroutine([i, qps_per_worker, duration_sec]() -> asio::awaitable<void> {
-        co_await qpsBenchmark(i, qps_per_worker, duration_sec);
-      });
-    }
-  } else if (mode_duration) {
-    // 模式3: 持续时间模式(最大速度)
-    for (int i = 0; i < concurrency; ++i) {
-      event_loop->addCoroutine([i]() -> asio::awaitable<void> {
-        co_await continuousBenchmark(i, 1000000); // 足够大的数字
-      });
-    }
+  // 创建工作线程
+  std::vector<std::thread> threads;
+  std::atomic<int> ready_threads{0};
 
-    // 启动定时器停止测试
-    event_loop->addTimer(duration_sec * 1000, false, [&]() {
-      g_running.store(false);
+  for (int thread_id = 0; thread_id < num_threads; ++thread_id) {
+    threads.emplace_back([thread_id, num_threads, coroutines_per_thread, remaining_coroutines,
+                          mode_total, mode_qps, mode_duration,
+                          total_requests, target_qps, duration_sec, &ready_threads]() {
+      // 每个线程创建自己的事件循环
+      rocket::EventLoop* event_loop = rocket::EventLoop::getThreadEventLoop();
+
+      // 计算这个线程的协程数
+      int num_coroutines = coroutines_per_thread;
+      if (thread_id == 0) {
+        num_coroutines += remaining_coroutines;  // 第一个线程处理剩余的协程
+      }
+
+      // 启动压测协程
+      if (mode_total) {
+        // 模式1: 总请求数模式
+        int total_workers = num_threads * coroutines_per_thread + remaining_coroutines;
+        int requests_per_worker = total_requests / total_workers;
+        for (int i = 0; i < num_coroutines; ++i) {
+          int worker_id = thread_id * coroutines_per_thread + i;
+          event_loop->addCoroutine([worker_id, requests_per_worker]() -> asio::awaitable<void> {
+            co_await continuousBenchmark(worker_id, requests_per_worker);
+          });
+        }
+      } else if (mode_qps) {
+        // 模式2: QPS控制模式
+        int total_workers = num_threads * coroutines_per_thread + remaining_coroutines;
+        int qps_per_worker = target_qps / total_workers;
+        for (int i = 0; i < num_coroutines; ++i) {
+          int worker_id = thread_id * coroutines_per_thread + i;
+          event_loop->addCoroutine([worker_id, qps_per_worker, duration_sec]() -> asio::awaitable<void> {
+            co_await qpsBenchmark(worker_id, qps_per_worker, duration_sec);
+          });
+        }
+      } else if (mode_duration) {
+        // 模式3: 持续时间模式(最大速度)
+        for (int i = 0; i < num_coroutines; ++i) {
+          int worker_id = thread_id * coroutines_per_thread + i;
+          event_loop->addCoroutine([worker_id]() -> asio::awaitable<void> {
+            co_await continuousBenchmark(worker_id, 1000000); // 足够大的数字
+          });
+        }
+
+        // 每个线程都设置定时器来停止自己的事件循环
+        event_loop->addTimer(duration_sec * 1000, false, [event_loop]() {
+          g_running.store(false);
+          event_loop->stop();  // 停止当前线程的事件循环
+        });
+      }
+
+      // 标记线程就绪
+      ready_threads.fetch_add(1);
+
+      // 运行事件循环
+      event_loop->run();
     });
   }
 
-  std::cout << "Benchmark started...\n";
+  // 等待所有线程启动
+  while (ready_threads.load() < num_threads) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
 
-  // 运行事件循环
-  event_loop->run();
+  std::cout << "Benchmark started with " << num_threads << " threads...\n";
+
+  // 等待所有线程完成
+  for (auto& thread : threads) {
+    thread.join();
+  }
 
   auto end_time = std::chrono::steady_clock::now();
   int actual_duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();

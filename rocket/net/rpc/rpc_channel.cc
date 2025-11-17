@@ -24,10 +24,10 @@ namespace rocket {
 
 RpcChannel::RpcChannel(std::vector<tcp::endpoint> peer_addrs)
     : peer_addrs_(peer_addrs) {
-  INFOLOG("RpcChannel");
+  DEBUGLOG("RpcChannel");
 }
 
-RpcChannel::~RpcChannel() { INFOLOG("~RpcChannel"); }
+RpcChannel::~RpcChannel() { DEBUGLOG("~RpcChannel"); }
 
 void RpcChannel::callBack() {
   RpcController *my_controller = dynamic_cast<RpcController *>(getController());
@@ -121,7 +121,7 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
   // 设置method_name
   req_protocol->method_name_ = method->full_name();
-  INFOLOG("%s | call method name [%s]", req_protocol->msg_id_.c_str(),
+  DEBUGLOG("%s | call method name [%s]", req_protocol->msg_id_.c_str(),
           req_protocol->method_name_.c_str());
 
   if (!is_init_) {
@@ -160,9 +160,10 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
       std::chrono::milliseconds(my_controller->GetTimeout()));
 
   // 使用协程实现超时控制
-  event_loop->addCoroutine([this, my_controller, channel]() mutable -> asio::awaitable<void> {
+  auto timeout_timer = timeout_timer_;  // 捕获shared_ptr副本
+  event_loop->addCoroutine([my_controller, channel, timeout_timer]() mutable -> asio::awaitable<void> {
     asio::error_code ec;
-    co_await timeout_timer_->async_wait(asio::redirect_error(asio::use_awaitable, ec));
+    co_await timeout_timer->async_wait(asio::redirect_error(asio::use_awaitable, ec));
 
     // 如果定时器被取消（收到响应），直接返回
     if (ec == asio::error::operation_aborted) {
@@ -189,58 +190,58 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     channel.reset();
   });
 
-  event_loop->addCoroutine([this, req_protocol, my_controller,
+  event_loop->addCoroutine([req_protocol, my_controller,
                             channel]() mutable -> asio::awaitable<void> {
-    co_await client_->connect();
+    co_await channel->client_->connect();
 
-    if (getTcpClient()->getConnectErrorCode() != 0) {
-      my_controller->SetError(getTcpClient()->getConnectErrorCode(),
-                              getTcpClient()->getConnectErrorInfo());
+    if (channel->getTcpClient()->getConnectErrorCode() != 0) {
+      my_controller->SetError(channel->getTcpClient()->getConnectErrorCode(),
+                              channel->getTcpClient()->getConnectErrorInfo());
       ERRORLOG(
           "%s | connect error, error coode[%d], error info[%s], peer addr[%s]",
           req_protocol->msg_id_.c_str(), my_controller->GetErrorCode(),
           my_controller->GetErrorInfo().c_str(),
-          getTcpClient()->getPeerAddr().address().to_string().c_str());
+          channel->getTcpClient()->getPeerAddr().address().to_string().c_str());
 
-      callBack();
+      channel->callBack();
       co_return;
     }
 
-    INFOLOG("%s | connect success, peer addr[%s], local addr[%s]",
+    DEBUGLOG("%s | connect success, peer addr[%s], local addr[%s]",
             req_protocol->msg_id_.c_str(),
-            getTcpClient()->getPeerAddr().address().to_string().c_str(),
+            channel->getTcpClient()->getPeerAddr().address().to_string().c_str(),
 
-            getTcpClient()->getLocalAddr().address().to_string().c_str());
+            channel->getTcpClient()->getLocalAddr().address().to_string().c_str());
 
     DEBUGLOG("client make write message");
-    getTcpClient()->writeMessage(
-        req_protocol, [req_protocol, this](AbstractProtocol::s_ptr) mutable {
-          INFOLOG("%s | send rpc request success. call method name[%s], peer "
+    channel->getTcpClient()->writeMessage(
+        req_protocol, [req_protocol,channel](AbstractProtocol::s_ptr) mutable {
+          DEBUGLOG("%s | send rpc request success. call method name[%s], peer "
                   "addr[%s], local addr[%s]",
                   req_protocol->msg_id_.c_str(),
                   req_protocol->method_name_.c_str(),
-                  getTcpClient()->getPeerAddr().address().to_string().c_str(),
-                  getTcpClient()->getLocalAddr().address().to_string().c_str());
+                  channel->getTcpClient()->getPeerAddr().address().to_string().c_str(),
+                  channel->getTcpClient()->getLocalAddr().address().to_string().c_str());
         });
 
     DEBUGLOG("client make read message");
-    getTcpClient()->readMessage(
+    channel->getTcpClient()->readMessage(
         req_protocol->msg_id_,
-        [this, my_controller](AbstractProtocol::s_ptr msg) mutable {
+        [ my_controller, channel](AbstractProtocol::s_ptr msg) mutable {
           std::shared_ptr<rocket::TinyPBProtocol> rsp_protocol =
               std::dynamic_pointer_cast<rocket::TinyPBProtocol>(msg);
 
-          INFOLOG("%s | success get rpc response, call method name[%s], peer "
+          DEBUGLOG("%s | success get rpc response, call method name[%s], peer "
                   "addr[%s], local addr[%s]",
                   rsp_protocol->msg_id_.c_str(),
                   rsp_protocol->method_name_.c_str(),
-                  getTcpClient()->getPeerAddr().address().to_string().c_str(),
-                  getTcpClient()->getLocalAddr().address().to_string().c_str());
+                  channel->getTcpClient()->getPeerAddr().address().to_string().c_str(),
+                  channel->getTcpClient()->getLocalAddr().address().to_string().c_str());
 
-          if (!(getResponse()->ParseFromString(rsp_protocol->pb_data_))) {
+          if (!(channel->getResponse()->ParseFromString(rsp_protocol->pb_data_))) {
             ERRORLOG("%s | serialize error", rsp_protocol->msg_id_.c_str());
             my_controller->SetError(ERROR_FAILED_SERIALIZE, "serialize error");
-            callBack();
+            channel->callBack();
             return;
           }
 
@@ -253,18 +254,18 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
 
             my_controller->SetError(rsp_protocol->err_code_,
                                     rsp_protocol->err_info_);
-            callBack();
+            channel->callBack();
             return;
           }
 
-          INFOLOG("%s | call rpc success, call method name[%s], peer addr[%s], "
+          DEBUGLOG("%s | call rpc success, call method name[%s], peer addr[%s], "
                   "local addr[%s]",
                   rsp_protocol->msg_id_.c_str(),
                   rsp_protocol->method_name_.c_str(),
-                  getTcpClient()->getPeerAddr().address().to_string().c_str(),
-                  getTcpClient()->getLocalAddr().address().to_string().c_str())
+                  channel->getTcpClient()->getPeerAddr().address().to_string().c_str(),
+                  channel->getTcpClient()->getLocalAddr().address().to_string().c_str())
 
-          callBack();
+          channel->callBack();
         });
   });
 }
