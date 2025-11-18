@@ -4,6 +4,7 @@
 #include "rocket/common/log.h"
 #include "rocket/net/io_thread_group.h"
 #include "rocket/net/tcp/tcp_connection.h"
+#include "rocket/net/pending_connection.h"
 #include <asio/awaitable.hpp>
 #include <asio/co_spawn.hpp>
 #include <asio/detached.hpp>
@@ -42,8 +43,8 @@ void TcpServer::init() {
 
 /**
  * listener()协程，不断 accept socket，创建新会话
- * 需要在会话中提供读和写协程
- * 在IO线程中使用上下文调用协程
+ * accept 线程负责：accept() + 创建 TcpConnection 对象
+ * IO 线程负责：调用 connection->start() 启动读写协程
  */
 awaitable<void> TcpServer::listener() {
   for (;;) {
@@ -53,15 +54,24 @@ awaitable<void> TcpServer::listener() {
       ERRORLOG("TcpServer::listener() error: %s", ec.message().c_str());
       co_return;
     }
-    EventLoop* run_event_loop = io_thread_group_->getIOThread()->getEventLoop();
+
+    // Round-robin 选择一个 IO 线程
+    IOThread* io_thread = io_thread_group_->getIOThread();
+    EventLoop* run_event_loop = io_thread->getEventLoop();
     auto run_io_context = run_event_loop->getIOContext();
+
     DEBUGLOG("TcpServer succ get client, address=%s",
             socket.remote_endpoint().address().to_string().c_str());
+
+    // 在 accept 线程中创建 TcpConnection 对象（轻量级操作）
     std::shared_ptr<TcpConnection> connection =
-        std::make_shared<TcpConnection>(run_io_context, std::move(socket),
-                                        128);
-    connection->start();
+        std::make_shared<TcpConnection>(run_io_context, std::move(socket), 128);
+
+
     clients_.insert(connection);
+
+    // 将待启动的连接投递到 IO 线程队列，由 IO 线程调用 start()（重量级操作）
+    io_thread->enqueuePendingConnection(PendingConnection(connection));
   }
 }
 

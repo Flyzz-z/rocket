@@ -45,6 +45,11 @@ public:
 
   ~TcpConnection();
 
+	TcpConnection(const TcpConnection&) = delete;
+	TcpConnection& operator=(const TcpConnection&) = delete;
+
+	TcpConnection(TcpConnection&&);
+
   void start();
 
   void execute();
