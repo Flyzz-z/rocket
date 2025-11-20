@@ -1,8 +1,6 @@
 #ifndef ROCKET_COMMON_SINGLETON_H
 #define ROCKET_COMMON_SINGLETON_H
 
-#include <memory>
-#include <mutex>
 template <typename T> class Singleton {
 public:
   Singleton(const Singleton &) = delete;

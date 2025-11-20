@@ -119,7 +119,7 @@ bool RpcDispatcher::parseServiceFullName(const std::string& full_name, std::stri
   service_name = full_name.substr(0, i);
   method_name = full_name.substr(i + 1, full_name.length() - i - 1);
 
-  INFOLOG("parse sericve_name[%s] and method_name[%s] from full name [%s]", service_name.c_str(), method_name.c_str(),full_name.c_str());
+  DEBUGLOG("parse sericve_name[%s] and method_name[%s] from full name [%s]", service_name.c_str(), method_name.c_str(),full_name.c_str());
 
   return true;
 

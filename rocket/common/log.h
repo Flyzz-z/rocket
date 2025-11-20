@@ -1,13 +1,21 @@
 #ifndef ROCKET_COMMON_LOG_H
 #define ROCKET_COMMON_LOG_H
 
+#include "util.h"
+#include "thread_local_buffer.h"
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <sched.h>
 #include <semaphore>
 #include <string>
 #include <queue>
 #include <memory>
 #include <semaphore.h>
+#include <functional>
+#include <thread>
+#include <unistd.h>
+#include <unordered_map>
 
 namespace rocket {
 
@@ -50,30 +58,6 @@ std::string formatString(const char* str, Args&&... args) {
   } \
 
 
-#define APPDEBUGLOG(str, ...) \
-  if (rocket::Logger::GetGlobalLogger()->getLogLevel() <= rocket::Debug) \
-  { \
-    rocket::Logger::GetGlobalLogger()->pushAppLog(rocket::LogEvent(rocket::LogLevel::Debug).toString() \
-      + "[" + std::string(__FILE__) + ":" + std::to_string(__LINE__) + "]\t" + rocket::formatString(str, ##__VA_ARGS__) + "\n");\
-  } \
-
-
-#define APPINFOLOG(str, ...) \
-  if (rocket::Logger::GetGlobalLogger()->getLogLevel() <= rocket::Info) \
-  { \
-    rocket::Logger::GetGlobalLogger()->pushAppLog(rocket::LogEvent(rocket::LogLevel::Info).toString() \
-    + "[" + std::string(__FILE__) + ":" + std::to_string(__LINE__) + "]\t" + rocket::formatString(str, ##__VA_ARGS__) + "\n");\
-  } \
-
-#define APPERRORLOG(str, ...) \
-  if (rocket::Logger::GetGlobalLogger()->getLogLevel() <= rocket::Error) \
-  { \
-    rocket::Logger::GetGlobalLogger()->pushAppLog(rocket::LogEvent(rocket::LogLevel::Error).toString() \
-      + "[" + std::string(__FILE__) + ":" + std::to_string(__LINE__) + "]\t" + rocket::formatString(str, ##__VA_ARGS__) + "\n");\
-  } \
-
-
-
 enum LogLevel {
   Unknown = 0,
   Debug = 1,
@@ -101,6 +85,9 @@ class AsyncLogger {
 
 
  public:
+	/*
+		不断尝试从buffer_中取出内容打印
+	*/
   static void* Loop(void*);
 
  public:
@@ -137,9 +124,9 @@ class Logger {
 
   Logger(LogLevel level, int type = 1);
 
-  void pushLog(const std::string& msg);
+  ~Logger();
 
-  void pushAppLog(const std::string& msg);
+  void pushLog(const std::string& msg);
 
   void init();
 
@@ -149,18 +136,32 @@ class Logger {
     return set_level_;
   }
 
-  AsyncLogger::s_ptr getAsyncAppLopger() {
-    return asnyc_app_logger_;
-  }
-
   AsyncLogger::s_ptr getAsyncLopger() {
     return asnyc_logger_;
   }
 
+	// buffer_内容同步至async_logger中
   void syncLoop();
 
+	// 轮询线程本地缓存日志
+	void pollThreadLocalBuffer();
+
+	// 定时处理线程循环函数
+	void timerLoop();
+
+	/*
+		尝试刷锁有线程本地缓存日志，以及logger日志和async_logger日志
+	*/
   void flush();
 
+	void registerThreadLocalBuffer(pid_t pid,std::shared_ptr<ThreadLocalLogBuffer> buffer);
+
+	void unregisterThreadLocalBuffer(pid_t pid);
+
+  // 批量刷新线程本地缓冲区到共享缓冲区
+  void flushThreadLocalBuffer(const std::vector<std::string>& thread_buffer);
+	
+	
  public:
   static Logger* GetGlobalLogger();
 
@@ -170,25 +171,24 @@ class Logger {
   LogLevel set_level_;
   std::vector<std::string> buffer_;
 
-  std::vector<std::string> app_buffer_;
-
   std::mutex mutex_;
 
-  std::mutex app_mutex_;
+  std::string file_name_;
+  std::string file_path_;
+  int max_file_size_ {0};
 
-  // file_path_/file_name_yyyymmdd_.1
-
-  std::string file_name_;    // 日志输出文件名字
-  std::string file_path_;    // 日志输出路径
-  int max_file_size_ {0};    // 日志单个文件最大大小
+	// 实现定时刷新线程本地日志
+	std::thread timer_thread_;
+	std::atomic<bool> timer_stop_flag_ {false};
+	std::mutex register_threads_mutex_;
+	std::unordered_map<pid_t, std::shared_ptr<ThreadLocalLogBuffer>> register_threads_;
+	std::unordered_map<pid_t, std::shared_ptr<ThreadLocalLogBuffer>> register_threads_cache_;
+	std::atomic<bool> cache_is_changed_ {false};
 
   AsyncLogger::s_ptr asnyc_logger_;
-
-  AsyncLogger::s_ptr asnyc_app_logger_;
   int type_ {0};
 
 };
-
 
 class LogEvent {
  public:

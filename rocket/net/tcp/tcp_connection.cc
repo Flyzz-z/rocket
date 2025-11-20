@@ -73,8 +73,8 @@ awaitable<void> TcpConnection::reader() {
     if (ec) {
       if (ec == asio::error::operation_aborted) {
         // 操作被取消，通常是主动关闭连接
-        INFOLOG("async_read was cancelled, connection closing, addr[%s]",
-                peer_addr_.address().to_string().c_str());
+        DEBUGLOG("async_read was cancelled, connection closing, addr[%s]",
+                 peer_addr_.address().to_string().c_str());
       } else {
         // 其他错误，通常是连接被对端关闭
         ERRORLOG("async_read error, error info: %s, addr[%s]",
@@ -101,9 +101,9 @@ void TcpConnection::execute() {
     for (size_t i = 0; i < result.size(); ++i) {
       // 1. 针对每一个请求，调用 rpc 方法，获取响应 message
       // 2. 将响应 message 放入到发送缓冲区，监听可写事件回包
-      INFOLOG("success get request[%s] from client[%s]",
-              result[i]->msg_id_.c_str(),
-              peer_addr_.address().to_string().c_str());
+      DEBUGLOG("success get request[%s] from client[%s]",
+               result[i]->msg_id_.c_str(),
+               peer_addr_.address().to_string().c_str());
 
       std::shared_ptr<TinyPBProtocol> message =
           std::make_shared<TinyPBProtocol>();
@@ -166,8 +166,8 @@ awaitable<void> TcpConnection::writer() {
       if (ec) {
         if (ec == asio::error::operation_aborted) {
           // 操作被取消，通常是主动关闭连接
-          INFOLOG("async_write was cancelled, connection closing, addr[%s]",
-                  peer_addr_.address().to_string().c_str());
+          DEBUGLOG("async_write was cancelled, connection closing, addr[%s]",
+                   peer_addr_.address().to_string().c_str());
         } else {
           // 其他错误，通常是连接被对端关闭
           ERRORLOG("async_write error, error info: %s, addr[%s]",
@@ -179,8 +179,8 @@ awaitable<void> TcpConnection::writer() {
       }
 
       out_buffer_.consume(bytes_write);
-      INFOLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
-              peer_addr_.address().to_string().c_str());
+      DEBUGLOG("write bytes: %ld, to endpoint[%s]", bytes_write,
+               peer_addr_.address().to_string().c_str());
       if (connection_type_ == ConnectionType::TcpConnectionByClient) {
         for (size_t i = 0; i < write_dones_.size(); ++i) {
           write_dones_[i].second(write_dones_[i].first);
