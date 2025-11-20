@@ -20,7 +20,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # 编译选项
-add_compile_options(-g -O0 -Wall -Wno-deprecated -Wno-unused-but-set-variable)
+# 添加 -fno-omit-frame-pointer 保留栈帧指针,使perf能正确回溯调用栈
+# 添加 -fno-inline 避免函数内联,使符号更清晰
+add_compile_options(-g -O0 -Wall -Wno-deprecated -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-inline)
 
 # 包含目录
 include_directories(

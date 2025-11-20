@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
 
   // 初始化
   rocket::Config::SetGlobalConfig(nullptr);
-  rocket::Logger::InitGlobalLogger(0);
+  rocket::Logger::InitGlobalLogger();
   rocket::EtcdRegistry::initAsClient("127.0.0.1", 2379, "root", "123456");
 
   std::cout << "========== Benchmark Configuration ==========\n";
