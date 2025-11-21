@@ -64,7 +64,39 @@ Latency Distribution:
 =======================================
 
 ```
+持续20s,10000个协程循环请求：
+```
+Init log level [DEBUG]
+========== Benchmark Configuration ==========
+Mode: Duration (Max Speed)
+Duration: 20 seconds
+Concurrency: 10000
+=============================================
 
+Thread Configuration:
+  Hardware Threads: 8
+  Benchmark Threads: 2
+  Coroutines per Thread: 5000
+
+Benchmark started with 2 threads...
+
+========== Benchmark Results ==========
+Duration: 21 seconds
+Total Requests: 21347
+Successful: 21347
+Failed: 0
+Success Rate: 100.00%
+QPS: 1016.52
+Average Latency: 173.14 ms
+Latency Distribution:
+  P50: 1.12 ms
+  P75: 6.90 ms
+  P90: 1012.28 ms
+  P95: 1495.64 ms
+  P99: 1545.92 ms
+  Max: 1714.86 ms
+=======================================
+```
 服务端火焰图如下：
 ![alt text](flame.svg)
 客户端暂未进行优化。
