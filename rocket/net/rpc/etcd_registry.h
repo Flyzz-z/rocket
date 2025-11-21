@@ -41,7 +41,8 @@ public:
   void unregisterService(const std::string &service_name);
 
   std::vector<std::string> discoverService(const std::string &service_name);
-
+	
+	// 根据key获取服务地址
   std::vector<std::string> loadByKey(const std::string &service_name);
 
   // 启动watcher监听服务变化
@@ -75,8 +76,12 @@ private:
   const int bucket_size_ = 8;
   using service_map = std::unordered_map<std::string, std::vector<std::string>>;
   std::vector<service_map> all_service_map_;
+	std::vector<service_map> all_service_map_cache_;
   std::vector<std::mutex> bucket_mutex_;
-  
+
+	// 乐观锁
+  std::vector<std::atomic<bool>> bucket_dirty_flags_;
+
   // Watcher相关成员
   std::unique_ptr<etcd::Watcher> watcher_;
   std::atomic<bool> watching_;

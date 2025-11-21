@@ -12,12 +12,18 @@
 
 namespace rocket {
 EtcdRegistry::EtcdRegistry()
-    : all_service_map_(bucket_size_), bucket_mutex_(bucket_size_),
-      watching_(false) {}
-      
-EtcdRegistry::~EtcdRegistry() { 
-  stopWatcher(); 
-  
+    : all_service_map_(bucket_size_), all_service_map_cache_(bucket_size_),
+      bucket_mutex_(bucket_size_), bucket_dirty_flags_(bucket_size_),
+      watching_(false) {
+  // 初始化所有dirty flags为false（缓存干净状态）
+  for (auto &flag : bucket_dirty_flags_) {
+    flag.store(false, std::memory_order_relaxed);
+  }
+}
+
+EtcdRegistry::~EtcdRegistry() {
+  stopWatcher();
+
   // 清理keep alive资源
   keep_alives_.clear();
 }
@@ -50,7 +56,8 @@ void EtcdRegistry::initAsServerFromConfig() {
   }
 
   auto instance = EtcdRegistry::GetInstance();
-  std::string addr = config->etcd_config_.ip + ":" + std::to_string(config->etcd_config_.port);
+  std::string addr =
+      config->etcd_config_.ip + ":" + std::to_string(config->etcd_config_.port);
   instance->etcd_client_ = std::make_unique<etcd::Client>(
       addr, config->etcd_config_.username, config->etcd_config_.password);
   instance->ip_ = config->etcd_config_.ip;
@@ -60,8 +67,8 @@ void EtcdRegistry::initAsServerFromConfig() {
 
   // 注册配置中的所有服务
   for (const auto &service : config->provided_services_) {
-    INFOLOG("Registering service: %s at %s:%d",
-            service.name.c_str(), service.ip.c_str(), service.port);
+    INFOLOG("Registering service: %s at %s:%d", service.name.c_str(),
+            service.ip.c_str(), service.port);
     instance->registerService(service.name, service.ip, service.port);
   }
 
@@ -130,19 +137,37 @@ void EtcdRegistry::unregisterService(const string &service_name) {
 
 /*
         优先从本地缓存获取，不存在则从etcd获取
+        使用乐观机制：先无锁检查dirty flag，只在必要时加锁
 */
 std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
 
   auto id = nameToIndex(service_name);
-  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
-  auto &keyServiceMap = all_service_map_[id];
-  if (keyServiceMap.count(service_name)) {
-    return keyServiceMap[service_name];
+
+  // 乐观路径：如果缓存未被标记为脏，尝试无锁读取
+  if (!bucket_dirty_flags_[id].load(std::memory_order_acquire)) {
+    auto &keyServiceMap = all_service_map_cache_[id];
+    auto it = keyServiceMap.find(service_name);
+    if (it != keyServiceMap.end()) {
+      // 快速返回，无锁操作
+      return it->second;
+    }
   }
 
-  // 没有缓存则加载
-  std::vector<std::string> vec = loadByKey(service_name);
+  // 慢路径：缓存脏或未命中，加锁处理
+  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
+
+  // 清除脏标志（在锁内设置，确保可见性）
+  bucket_dirty_flags_[id].store(false, std::memory_order_release);
+
+  auto &keyServiceMap = all_service_map_[id];
+  std::vector<std::string> vec;
+  if (keyServiceMap.count(service_name)) {
+    vec = keyServiceMap[service_name];
+  } else { // 没有缓存则加载
+    vec = loadByKey(service_name);
+  }
   keyServiceMap[service_name] = vec;
+  all_service_map_cache_[id] = keyServiceMap;
   return vec;
 }
 
@@ -179,7 +204,7 @@ void EtcdRegistry::startWatcher() {
   }
 
   watching_.store(true);
-	DEBUGLOG("begin start watcher");
+  DEBUGLOG("begin start watcher");
   // 在单独的线程中启动watcher，避免阻塞
   watcher_thread_ = std::make_unique<std::thread>([this]() {
     try {
@@ -195,7 +220,7 @@ void EtcdRegistry::startWatcher() {
           std::make_unique<etcd::Watcher>(*etcd_client_, watch_prefix, callback,
                                           true); // true表示监听前缀下的所有变化
 
-      INFOLOG("Etcd watcher started for prefix: %s", watch_prefix.c_str());      
+      INFOLOG("Etcd watcher started for prefix: %s", watch_prefix.c_str());
       // 保持watcher运行
       watcher_->Wait();
 
@@ -213,7 +238,7 @@ void EtcdRegistry::stopWatcher() {
     watching_.store(false);
 
     if (watcher_) {
-			watcher_->Cancel();
+      watcher_->Cancel();
     }
 
     if (watcher_thread_ && watcher_thread_->joinable()) {
@@ -227,8 +252,7 @@ void EtcdRegistry::stopWatcher() {
 
 void EtcdRegistry::handleWatchEvent(etcd::Response response) {
   try {
-    INFOLOG("Received etcd watch event, action: %s",
-            response.action().c_str());
+    INFOLOG("Received etcd watch event, action: %s", response.action().c_str());
     // 检查事件类型
     if (response.action() == "delete" || response.action() == "expire") {
       // 服务被删除或过期
@@ -267,7 +291,10 @@ void EtcdRegistry::removeServiceFromCache(const std::string &key) {
   // 计算bucket id
   auto id = nameToIndex(service_name);
 
-  // 加锁并从缓存中移除
+  // 先设置脏标志（原子操作，无需加锁）
+  bucket_dirty_flags_[id].store(true, std::memory_order_release);
+
+  // 再加锁并从缓存中移除
   std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
   auto &keyServiceMap = all_service_map_[id];
 
