@@ -28,75 +28,7 @@ C++20协程文章
 [My tutorial and take on C++20 coroutines](https://www.scs.stanford.edu/~dm/blog/c++-coroutines.html)
 
 ## 压测
-[test_rpc_bench.cc](./testcases/test_rpc_bench.cc) 实现了压测。
-在8核6G内存虚拟机上进行测试，指令为./test_rpc_bench -t 30 -c 4000 : 意为压测持续30s中，创建4000个协程, 默认使用2线程，每个线程2000协程不断进行rpc请求。
-服务端配置io线程数为4。\
-压测结果如下：
-```
-========== Benchmark Configuration ==========
-Mode: Duration (Max Speed)
-Duration: 30 seconds
-Concurrency: 4000
-=============================================
+bench存在问题，待修复
 
-Thread Configuration:
-  Hardware Threads: 8
-  Benchmark Threads: 2
-  Coroutines per Thread: 2000
-
-Benchmark started with 2 threads...
-
-========== Benchmark Results ==========
-Duration: 30 seconds
-Total Requests: 28221
-Successful: 28221
-Failed: 0
-Success Rate: 100.00%
-QPS: 940.70
-Average Latency: 735.99 ms
-Latency Distribution:
-  P50: 1124.70 ms
-  P75: 1224.87 ms
-  P90: 1315.54 ms
-  P95: 1407.54 ms
-  P99: 1978.91 ms
-  Max: 2482.93 ms
-=======================================
-
-```
-持续20s,10000个协程循环请求：
-```
-Init log level [DEBUG]
-========== Benchmark Configuration ==========
-Mode: Duration (Max Speed)
-Duration: 20 seconds
-Concurrency: 10000
-=============================================
-
-Thread Configuration:
-  Hardware Threads: 8
-  Benchmark Threads: 2
-  Coroutines per Thread: 5000
-
-Benchmark started with 2 threads...
-
-========== Benchmark Results ==========
-Duration: 21 seconds
-Total Requests: 21347
-Successful: 21347
-Failed: 0
-Success Rate: 100.00%
-QPS: 1016.52
-Average Latency: 173.14 ms
-Latency Distribution:
-  P50: 1.12 ms
-  P75: 6.90 ms
-  P90: 1012.28 ms
-  P95: 1495.64 ms
-  P99: 1545.92 ms
-  Max: 1714.86 ms
-=======================================
-```
 服务端火焰图如下：
 ![alt text](flame.svg)
-客户端暂未进行优化。
