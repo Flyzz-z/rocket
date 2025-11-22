@@ -28,7 +28,38 @@ C++20协程文章
 [My tutorial and take on C++20 coroutines](https://www.scs.stanford.edu/~dm/blog/c++-coroutines.html)
 
 ## 压测
-bench存在问题，待修复
+服务端4 io线程， 客户端2线程，8000协程，40s持续不断发起请求。  每次请求都是一个TCP连接，需要内核允许复用time_wait连接。
+
+Init log level [DEBUG]
+========== Benchmark Configuration ==========
+Mode: Duration (Max Speed)
+Duration: 40 seconds
+Concurrency: 8000
+=============================================
+
+Thread Configuration:
+  Hardware Threads: 8
+  Benchmark Threads: 2
+  Coroutines per Thread: 4000
+
+Benchmark started with 2 threads...
+
+========== Benchmark Results ==========
+Duration: 40 seconds
+Total Requests: 236285
+Successful: 236285
+Failed: 0
+Success Rate: 100.00%
+QPS: 5907.12
+Average Latency: 730.25 ms
+Latency Distribution:
+  P50: 709.67 ms
+  P75: 773.69 ms
+  P90: 790.09 ms
+  P95: 821.00 ms
+  P99: 932.65 ms
+  Max: 1045.55 ms
+=======================================
 
 服务端火焰图如下：
 ![alt text](flame.svg)

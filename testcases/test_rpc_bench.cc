@@ -178,10 +178,19 @@ asio::awaitable<void> sendSingleRequest(int req_id) {
   g_stats.recordRequest(latency_us, success);
 }
 
-// 持续发送请求的协程
-asio::awaitable<void> continuousBenchmark(int worker_id, int requests_per_worker) {
-  for (int i = 0; i < requests_per_worker && g_running.load(); ++i) {
-    int req_id = worker_id * 10000 + i;
+// 持续发送请求的协程 - 每个协程独立循环，实现真正的并发
+asio::awaitable<void> continuousBenchmark(int worker_id) {
+  int req_count = 0;
+  while (g_running.load()) {
+    int req_id = worker_id * 1000000 + req_count++;
+    co_await sendSingleRequest(req_id);
+  }
+}
+
+// 发送固定数量请求的协程
+asio::awaitable<void> fixedRequestsBenchmark(int worker_id, int num_requests) {
+  for (int i = 0; i < num_requests && g_running.load(); ++i) {
+    int req_id = worker_id * 1000000 + i;
     co_await sendSingleRequest(req_id);
   }
 }
@@ -331,13 +340,13 @@ int main(int argc, char* argv[]) {
 
       // 启动压测协程
       if (mode_total) {
-        // 模式1: 总请求数模式
+        // 模式1: 总请求数模式 - 每个协程独立发送固定数量请求
         int total_workers = num_threads * coroutines_per_thread + remaining_coroutines;
         int requests_per_worker = total_requests / total_workers;
         for (int i = 0; i < num_coroutines; ++i) {
           int worker_id = thread_id * coroutines_per_thread + i;
           event_loop->addCoroutine([worker_id, requests_per_worker]() -> asio::awaitable<void> {
-            co_await continuousBenchmark(worker_id, requests_per_worker);
+            co_await fixedRequestsBenchmark(worker_id, requests_per_worker);
           });
         }
       } else if (mode_qps) {
@@ -351,11 +360,11 @@ int main(int argc, char* argv[]) {
           });
         }
       } else if (mode_duration) {
-        // 模式3: 持续时间模式(最大速度)
+        // 模式3: 持续时间模式(最大速度) - 每个协程独立循环，真正并发
         for (int i = 0; i < num_coroutines; ++i) {
           int worker_id = thread_id * coroutines_per_thread + i;
           event_loop->addCoroutine([worker_id]() -> asio::awaitable<void> {
-            co_await continuousBenchmark(worker_id, 1000000); // 足够大的数字
+            co_await continuousBenchmark(worker_id);
           });
         }
 
