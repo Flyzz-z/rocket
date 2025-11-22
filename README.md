@@ -29,7 +29,7 @@ C++20协程文章
 
 ## 压测
 服务端4 io线程， 客户端2线程，8000协程，40s持续不断发起请求。  每次请求都是一个TCP连接，需要内核允许复用time_wait连接。
-
+```
 Init log level [DEBUG]
 ========== Benchmark Configuration ==========
 Mode: Duration (Max Speed)
@@ -60,6 +60,7 @@ Latency Distribution:
   P99: 932.65 ms
   Max: 1045.55 ms
 =======================================
+```
 
 服务端火焰图如下：
 ![alt text](flame.svg)
