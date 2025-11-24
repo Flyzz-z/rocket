@@ -1,0 +1,23 @@
+# Suppress third-party library data races
+
+# gRPC internal issues
+race:libgrpc.so
+race:libgpr.so
+race:grpc_core::
+race:gpr_mu_
+race:grpc_combiner_continue_exec_ctx
+
+# etcd-cpp-api internal issues
+race:libetcd-cpp-api.so
+race:etcd::
+race:etcdv3::
+
+# cpprest (Casablanca) internal issues
+race:libcpprest.so
+race:pplx::
+
+# Protobuf internal issues
+race:google::protobuf::internal
+
+# Boost ASIO internal issues (if needed)
+race:boost::asio::detail::posix_thread

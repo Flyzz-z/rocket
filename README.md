@@ -1,19 +1,17 @@
 # Rocket 
   原项目 [README](./README.md.bac)
 	本项目主要添加内容:
-1. 本项目基于 C++20 协程，使用 asio 网络库重构项目网络模型为基于协程的网络处理模型.
-（1）网络连接协程化。服务端采用一主多从的线程模型，主线程包含接受请求，分发请求到从线程进行处理。从线程对连接进行读写处理。客户端主要为对连接进行读写处理。其中处理逻辑均协程化。
+1. 本项目基于 C++20 协程，使用 asio 网络库重构项目网络模型为基于协程的网络处理模型，阅读 asio io_context 调度相关代码，理解其调度流程。
+
+（1）网络连接协程化。服务端采用一主多从的线程模型，服务端客户端网络处理均协程化。
+
 （2）RPC逻辑协程化。RPC部分基于 Protobuf 提供相关类型实现，对 stub 进行封装使其支持协程调用，同时对 RPC 处理逻辑进行修改支持协程化。
-（3）阅读 asio io_context 调度相关代码，理解其调度流程。
 
-2. 实现基于 etcd 的服务注册和服务发现功能。
-	(1) 基于 etcd watcher 机制实现健康检查功能。
-	(2) 实现服务缓存，使用分段锁对服务缓存进行并发保护，提升并发能力。
-	(3) 实现基于轮询的负载均衡。
-	(4) 对 etcd 分布式原理有一定了解。
+2. 实现基于 etcd 的服务注册和服务发现功能。(1) 基于 etcd watcher 机制实现健康检查功能。(2) 实现服务缓存，使用自旋锁+分段锁对服务缓存进行并发保护，提升并发能力。(3) 实现基于轮询的负载均衡。(4) 对 etcd 分布式原理有一定了解。
 
-3. 实现异步日志写入模块，添加线程本地队列提升日志写入性能。
-4. 使用火焰图定位服务端性能瓶颈，进行性能优化。包括将accept线程中复杂操作移至io线程处理；增加线程本地日志队列。在压测下性能提升约1倍。
+3. 重构实现异步日志模块，增添线程本地队列，双缓冲+原子变量保证并发安全，提升并发能力。
+
+4. 编写压测代码测试客户端服务端整体性能，生成火焰图分析性能，优化逻辑提升处理性能。
 
 ## 总结
 [asio-IO多路复用](./docs/asio-IO多路复用.md) \
@@ -28,12 +26,15 @@ C++20协程文章
 [My tutorial and take on C++20 coroutines](https://www.scs.stanford.edu/~dm/blog/c++-coroutines.html)
 
 ## 压测
-服务端4 io线程， 客户端2线程，8000协程，40s持续不断发起请求。  每次请求都是一个TCP连接，需要内核允许复用time_wait连接。
+服务端4 io线程， 客户端2线程，8000协程，60s持续不断发起请求。  每次请求都是一个TCP连接，需要内核允许复用time_wait连接。 QPS为7400。
 ```
-Init log level [DEBUG]
+(base) flyzz@flyzz:~/rocket/build$ ./bin/test_rpc_bench -t 60 -c 8000
+LOG -- CONFIG LEVEL[INFO], FILE_NAME[test_rpc_client],FILE_PATH[log/] MAX_FILE_SIZE[1000000000 B], SYNC_INTEVAL[500 ms]
+Server -- PORT[12345], IO Threads[4]
+Init log level [INFO]
 ========== Benchmark Configuration ==========
 Mode: Duration (Max Speed)
-Duration: 40 seconds
+Duration: 60 seconds
 Concurrency: 8000
 =============================================
 
@@ -45,20 +46,20 @@ Thread Configuration:
 Benchmark started with 2 threads...
 
 ========== Benchmark Results ==========
-Duration: 40 seconds
-Total Requests: 236285
-Successful: 236285
+Duration: 61 seconds
+Total Requests: 451008
+Successful: 451008
 Failed: 0
 Success Rate: 100.00%
-QPS: 5907.12
-Average Latency: 730.25 ms
+QPS: 7393.57
+Average Latency: 576.53 ms
 Latency Distribution:
-  P50: 709.67 ms
-  P75: 773.69 ms
-  P90: 790.09 ms
-  P95: 821.00 ms
-  P99: 932.65 ms
-  Max: 1045.55 ms
+  P50: 776.65 ms
+  P75: 856.17 ms
+  P90: 872.95 ms
+  P95: 880.92 ms
+  P99: 900.07 ms
+  Max: 942.57 ms
 =======================================
 ```
 

@@ -5,7 +5,6 @@
 #include <thread>
 #include <algorithm>
 #include <iomanip>
-#include <cmath>
 #include <memory>
 #include "rocket/common/config.h"
 #include "rocket/logger/log.h"
@@ -280,7 +279,7 @@ int main(int argc, char* argv[]) {
   }
 
   // 初始化
-  rocket::Config::SetGlobalConfig(nullptr);
+  rocket::Config::SetGlobalConfig("../conf/rocket_client.xml");
   rocket::Logger::InitGlobalLogger();
   rocket::EtcdRegistry::initAsClient("127.0.0.1", 2379, "root", "123456");
 
@@ -404,9 +403,7 @@ int main(int argc, char* argv[]) {
   // 打印统计信息
   g_stats.printStats(actual_duration > 0 ? actual_duration : 1);
 
-  // 清理
-  rocket::EtcdRegistry::GetInstance()->stopWatcher();
-  rocket::Logger::GetGlobalLogger()->flush();
+
 
   return 0;
 }

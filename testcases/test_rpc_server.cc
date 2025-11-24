@@ -6,7 +6,6 @@
 #include "rocket/net/tcp/tcp_server.h"
 #include <arpa/inet.h>
 #include <asio/ip/address.hpp>
-#include <assert.h>
 #include <fcntl.h>
 #include <google/protobuf/service.h>
 #include <memory>

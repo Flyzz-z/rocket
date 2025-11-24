@@ -1,7 +1,6 @@
 #include <asio/ip/address.hpp>
 #include <tinyxml/tinyxml.h>
 #include "rocket/common/config.h"
-#include "rocket/net/rpc/etcd_registry.h"
 
 
 
@@ -54,7 +53,6 @@ Config::~Config() {
 
 Config::Config() {
   log_level_ = "DEBUG";
-
 }
   
 Config::Config(const char* xmlfile) {

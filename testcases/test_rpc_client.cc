@@ -6,14 +6,11 @@
 #include "rocket/net/rpc/rpc_channel.h"
 #include <arpa/inet.h>
 #include <asio/awaitable.hpp>
-#include <assert.h>
-#include <cstddef>
 #include <fcntl.h>
 #include <google/protobuf/service.h>
 #include <memory>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <string.h>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -48,15 +45,19 @@ asio::awaitable<void> test_rpc_channel() {
     std::cout << "controller failed, error_code: " << controller->GetErrorCode()
               << ", error_info: " << controller->GetErrorInfo() << std::endl;
   }
-  
-  // 确保日志被刷新
-  rocket::Logger::GetGlobalLogger()->flush();
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
-  rocket::Config::SetGlobalConfig(NULL);
-  rocket::Logger::InitGlobalLogger(1); // 启用异步日志处理器
+  if (argc != 2) {
+    printf("Start test_rpc_client error, argc not 2 \n");
+    printf("Start like this: \n");
+    printf("./test_rpc_client ../conf/rocket_client.xml \n");
+    return 0;
+  }
+
+  rocket::Config::SetGlobalConfig(argv[1]);
+  rocket::Logger::InitGlobalLogger(); // 启用异步日志处理器
 
   // 客户端初始化: 仅用于服务发现,不注册任何服务
   rocket::EtcdRegistry::initAsClient("127.0.0.1", 2379, "root", "123456");
