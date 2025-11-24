@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "rocket/common/msg_id_util.h"
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 
 namespace rocket {
 

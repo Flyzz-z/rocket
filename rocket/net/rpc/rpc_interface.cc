@@ -1,4 +1,4 @@
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include "rocket/net/rpc/rpc_closure.h"
 #include "rocket/net/rpc/rpc_closure.h"
 #include "rocket/net/rpc/rpc_controller.h"

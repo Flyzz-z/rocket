@@ -2,7 +2,7 @@
 #define ROCKET_NET_IO_THREAD_GROUP_H
 
 #include <vector>
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include "rocket/net/io_thread.h"
 
 

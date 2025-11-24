@@ -50,6 +50,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/rocket
     ${CMAKE_SOURCE_DIR}/rocket/common
+    ${CMAKE_SOURCE_DIR}/rocket/log
     ${CMAKE_SOURCE_DIR}/rocket/net
     ${CMAKE_SOURCE_DIR}/rocket/net/tcp
     ${CMAKE_SOURCE_DIR}/rocket/net/coder
@@ -64,8 +65,9 @@ find_library(ETCD_CPP_LIB etcd-cpp-api /usr/local/lib)
 
 
 # rocket库源文件
-file(GLOB_RECURSE ROCKET_SOURCES 
+file(GLOB_RECURSE ROCKET_SOURCES
     "rocket/common/*.cc"
+    "rocket/log/*.cc"
     "rocket/net/*.cc"
     "rocket/net/tcp/*.cc"
     "rocket/net/coder/*.cc"
@@ -129,6 +131,11 @@ install(DIRECTORY rocket/net/coder/
 
 install(DIRECTORY rocket/net/rpc/
     DESTINATION /usr/local/include/rocket/net/rpc
+    FILES_MATCHING PATTERN "*.h"
+)
+
+install(DIRECTORY rocket/log/
+    DESTINATION /usr/local/include/rocket/log
     FILES_MATCHING PATTERN "*.h"
 )
 

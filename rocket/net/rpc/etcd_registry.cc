@@ -1,6 +1,6 @@
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/common/config.h"
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include <atomic>
 #include <etcd/KeepAlive.hpp>
 #include <etcd/Response.hpp>
@@ -156,9 +156,6 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
   // 慢路径：缓存脏或未命中，加锁处理
   std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
 
-  // 清除脏标志（在锁内设置，确保可见性）
-  bucket_dirty_flags_[id].store(false, std::memory_order_release);
-
   auto &keyServiceMap = all_service_map_[id];
   std::vector<std::string> vec;
   if (keyServiceMap.count(service_name)) {
@@ -168,6 +165,8 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
   }
   keyServiceMap[service_name] = vec;
   all_service_map_cache_[id] = keyServiceMap;
+	// 清除脏标志（在锁内设置，确保可见性）
+  bucket_dirty_flags_[id].store(false, std::memory_order_release);
   return vec;
 }
 
@@ -291,11 +290,9 @@ void EtcdRegistry::removeServiceFromCache(const std::string &key) {
   // 计算bucket id
   auto id = nameToIndex(service_name);
 
-  // 先设置脏标志（原子操作，无需加锁）
+  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
   bucket_dirty_flags_[id].store(true, std::memory_order_release);
 
-  // 再加锁并从缓存中移除
-  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
   auto &keyServiceMap = all_service_map_[id];
 
   if (keyServiceMap.find(service_name) != keyServiceMap.end()) {
@@ -304,7 +301,7 @@ void EtcdRegistry::removeServiceFromCache(const std::string &key) {
     INFOLOG("Removed service %s from cache due to etcd watch event",
             service_name.c_str());
   }
-}
+} 
 
 int EtcdRegistry::nameToIndex(const std::string &service_name) {
   auto hv = std::hash<string>()(service_name);

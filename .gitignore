@@ -1,6 +1,7 @@
 # Build directories
 build/
 cmake-build-*/
+out/
 
 # 编译产物目录
 bin/
@@ -16,19 +17,62 @@ CMakeFiles/
 Makefile
 cmake_install.cmake
 compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
 
 # 编译器和系统相关
 *.o
 *.a
 *.so
+*.so.*
 *.exe
 *.dll
 *.dylib
+*.out
 
+# IDE
 .cache/
 .vscode/
 .idea/
+.claude/
 .project
 .settings/
 .classpath
+*.swp
+*.swo
+*~
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*.d
+
+# 调试相关
+*.dSYM/
+core
+core.*
+vgcore.*
+
+# 测试覆盖率
+*.gcno
+*.gcda
+*.gcov
+coverage/
+
+# 性能分析
+*.prof
+perf.data
+perf.data.old
+
+# etcd 数据
+default.etcd/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup

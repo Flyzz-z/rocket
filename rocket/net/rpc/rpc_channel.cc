@@ -1,7 +1,7 @@
 #include "rocket/net/rpc/rpc_channel.h"
 #include "rocket/common/config.h"
 #include "rocket/common/error_code.h"
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include "rocket/common/msg_id_util.h"
 #include "rocket/common/run_time.h"
 #include "rocket/net/coder/tinypb_protocol.h"

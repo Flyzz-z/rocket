@@ -8,7 +8,7 @@
 #include <cmath>
 #include <memory>
 #include "rocket/common/config.h"
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include "rocket/net/event_loop.h"
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/net/rpc/rpc_channel.h"

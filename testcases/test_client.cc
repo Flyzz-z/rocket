@@ -1,5 +1,5 @@
 #include "rocket/common/config.h"
-#include "rocket/common/log.h"
+#include "rocket/log/log.h"
 #include "rocket/net/coder/abstract_protocol.h"
 #include "rocket/net/coder/tinypb_protocol.h"
 #include "rocket/net/tcp/tcp_client.h"
