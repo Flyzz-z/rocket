@@ -4,7 +4,7 @@
 
 #include "rocket/net/rpc/rpc_dispatcher.h"
 #include "rocket/net/coder/tinypb_protocol.h"
-#include "rocket/log/log.h"
+#include "rocket/logger/log.h"
 #include "rocket/common/error_code.h"
 #include "rocket/net/rpc/rpc_controller.h"
 #include "rocket/net/rpc/rpc_closure.h"

@@ -1,6 +1,6 @@
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/common/config.h"
-#include "rocket/log/log.h"
+#include "rocket/logger/log.h"
 #include <atomic>
 #include <etcd/KeepAlive.hpp>
 #include <etcd/Response.hpp>

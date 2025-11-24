@@ -7,7 +7,7 @@
 #include <google/protobuf/stubs/callback.h>
 #include <string>
 
-#include "rocket/log/log.h"
+#include "rocket/logger/log.h"
 
 namespace rocket {
 

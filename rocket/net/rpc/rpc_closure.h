@@ -5,7 +5,7 @@
 #include <functional>
 #include <memory>
 #include "rocket/common/run_time.h"
-#include "rocket/log/log.h"
+#include "rocket/logger/log.h"
 #include "rocket/common/exception.h"
 #include "rocket/net/rpc/rpc_interface.h"
 
