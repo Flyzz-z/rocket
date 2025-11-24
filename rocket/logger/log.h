@@ -76,6 +76,8 @@ class AsyncLogger {
   typedef std::shared_ptr<AsyncLogger> s_ptr;
   AsyncLogger(const std::string& file_name, const std::string& file_path, int max_size);
 
+  ~AsyncLogger();
+
   void stop();
 
   // 刷新到磁盘
@@ -114,7 +116,7 @@ class AsyncLogger {
 
   int no_ {0};   // 日志文件序号
 
-  bool stop_flag_ {false};
+  std::atomic<bool> stop_flag_ {false};
 
 };
 

@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <string>
 
 namespace rocket {
 
@@ -13,6 +14,9 @@ pid_t getThreadId();
 int64_t getNowMs();
 
 int32_t getInt32FromNetByte(const char* buf);
+
+// 创建目录（递归创建，类似 mkdir -p）
+bool createDirectory(const std::string& path);
 
 }
 

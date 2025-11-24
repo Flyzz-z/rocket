@@ -1,7 +1,9 @@
 #include "rocket/logger/log.h"
+#include "rocket/common/util.h"
 #include <cstring>
 #include <sstream>
 #include <sys/time.h>
+#include <iostream>
 
 namespace rocket {
 
@@ -10,8 +12,22 @@ AsyncLogger::AsyncLogger(const std::string &file_name,
     : file_name_(file_name), file_path_(file_path), max_file_size_(max_size),
       sempahore_(0) {
 
+  // 确保日志目录存在
+	createDirectory(file_path_);
+
   thread_ = std::thread(&AsyncLogger::Loop, this);
   sempahore_.acquire();
+}
+
+AsyncLogger::~AsyncLogger() {
+  stop();
+  if (thread_.joinable()) {
+    thread_.join();
+  }
+  if (file_hanlder_) {
+    fclose(file_hanlder_);
+    file_hanlder_ = nullptr;
+  }
 }
 
 void *AsyncLogger::Loop(void *arg) {
@@ -22,16 +38,21 @@ void *AsyncLogger::Loop(void *arg) {
 
   logger->sempahore_.release();
 
-  while (!logger->buffer_.empty()) {
+  while (true) {  // ✅ 改为 true，在锁内检查
     std::unique_lock<std::mutex> lock(logger->mutex_);
-    if (logger->buffer_.empty()) {
-      logger->cond_.wait(lock, [logger]() -> bool {
-        return !logger->buffer_.empty() || logger->stop_flag_;
-      });
+
+    // 等待数据或停止信号
+    logger->cond_.wait(lock, [logger]() -> bool {
+      return !logger->buffer_.empty() || logger->stop_flag_.load(std::memory_order_relaxed);
+    });
+
+    // 检查是否需要停止
+    if (logger->stop_flag_.load(std::memory_order_relaxed) && logger->buffer_.empty()) {
+      return nullptr;
     }
 
     if (logger->buffer_.empty()) {
-      return NULL;
+      continue;
     }
 
     // 每次取一组元素打印
@@ -70,15 +91,29 @@ void *AsyncLogger::Loop(void *arg) {
         fclose(logger->file_hanlder_);
       }
       logger->file_hanlder_ = fopen(log_file_name.c_str(), "a");
+      if (!logger->file_hanlder_) {
+        std::cerr << "Failed to open log file: " << log_file_name << std::endl;
+        continue;  // 跳过本次写入
+      }
       logger->reopen_flag_ = false;
     }
 
-    if (ftell(logger->file_hanlder_) > logger->max_file_size_) {
+    // 检查文件大小前确保文件句柄有效
+    if (logger->file_hanlder_ && ftell(logger->file_hanlder_) > logger->max_file_size_) {
       fclose(logger->file_hanlder_);
 
       log_file_name = ss.str() + std::to_string(logger->no_++);
       logger->file_hanlder_ = fopen(log_file_name.c_str(), "a");
+      if (!logger->file_hanlder_) {
+        std::cerr << "Failed to open log file: " << log_file_name << std::endl;
+        continue;  // 跳过本次写入
+      }
       logger->reopen_flag_ = false;
+    }
+
+    // 确保文件句柄有效后再写入
+    if (!logger->file_hanlder_) {
+      continue;  // 文件句柄无效，跳过本次写入
     }
 
     for (auto &i : tmp) {
@@ -93,7 +128,7 @@ void *AsyncLogger::Loop(void *arg) {
 }
 
 void AsyncLogger::stop() {
-  stop_flag_ = true;
+  stop_flag_.store(true, std::memory_order_relaxed);
   cond_.notify_all();
 }
 
