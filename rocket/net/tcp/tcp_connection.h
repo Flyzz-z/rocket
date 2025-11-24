@@ -11,6 +11,7 @@
 #include <asio/redirect_error.hpp>
 #include <asio/steady_timer.hpp>
 #include <asio/use_awaitable.hpp>
+#include <atomic>
 #include <map>
 #include <memory>
 
@@ -99,7 +100,7 @@ private:
 
   std::unique_ptr<AbstractCoder> coder_{nullptr};
 
-  State state_{State::NotConnected};
+  std::atomic<State> state_{State::NotConnected};
 
   ConnectionType connection_type_{ConnectionType::TcpConnectionByServer};
 

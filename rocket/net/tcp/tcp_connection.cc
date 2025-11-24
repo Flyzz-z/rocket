@@ -37,7 +37,7 @@ TcpConnection::~TcpConnection() {
 
 void TcpConnection::start() {
 
-  state_ = State::Connected;
+  state_.store(State::Connected, std::memory_order_relaxed);
   asio::co_spawn(
       *io_context_,
       [self = shared_from_this()]() -> awaitable<void> {
@@ -77,7 +77,7 @@ awaitable<void> TcpConnection::reader() {
                  peer_addr_.address().to_string().c_str());
       } else {
         // 其他错误，通常是连接被对端关闭
-        ERRORLOG("async_read error, error info: %s, addr[%s]",
+        INFOLOG("async_read error, error info: %s, addr[%s]",
                  ec.message().c_str(),
                  peer_addr_.address().to_string().c_str());
         shutdown();
@@ -170,7 +170,7 @@ awaitable<void> TcpConnection::writer() {
                    peer_addr_.address().to_string().c_str());
         } else {
           // 其他错误，通常是连接被对端关闭
-          ERRORLOG("async_write error, error info: %s, addr[%s]",
+          INFOLOG("async_write error, error info: %s, addr[%s]",
                    ec.message().c_str(),
                    peer_addr_.address().to_string().c_str());
           shutdown();
@@ -196,7 +196,7 @@ awaitable<void> TcpConnection::writer() {
 }
 
 bool TcpConnection::is_open() {
-  return state_ == State::Connected && socket_.is_open();
+  return state_.load(std::memory_order_relaxed) == State::Connected && socket_.is_open();
 }
 
 void TcpConnection::clear() {
@@ -208,17 +208,17 @@ void TcpConnection::clear() {
   read_dones_.clear();
 
   // 更新连接状态
-  state_ = State::Closed;
+  state_.store(State::Closed, std::memory_order_relaxed);
 }
 
 // todo 当前不支持shutdown，只支持close
 void TcpConnection::shutdown() {
-  if (state_ == State::Closed) {
+  if (state_.load(std::memory_order_relaxed) == State::Closed) {
     return;
   }
 
   // 更新状态
-  state_ = State::Closed;
+  state_.store(State::Closed, std::memory_order_relaxed);
 
   socket_.cancel();
   // 取消定时器
