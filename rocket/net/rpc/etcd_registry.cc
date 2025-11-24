@@ -1,6 +1,7 @@
 #include "rocket/net/rpc/etcd_registry.h"
 #include "rocket/common/config.h"
 #include "rocket/logger/log.h"
+#include "spinlock.h"
 #include <atomic>
 #include <etcd/KeepAlive.hpp>
 #include <etcd/Response.hpp>
@@ -12,13 +13,9 @@
 
 namespace rocket {
 EtcdRegistry::EtcdRegistry()
-    : all_service_map_(bucket_size_), all_service_map_cache_(bucket_size_),
-      bucket_mutex_(bucket_size_), bucket_dirty_flags_(bucket_size_),
+    : all_service_map_(bucket_size_),
+      bucket_lock_(bucket_size_),
       watching_(false) {
-  // 初始化所有dirty flags为false（缓存干净状态）
-  for (auto &flag : bucket_dirty_flags_) {
-    flag.store(false, std::memory_order_relaxed);
-  }
 }
 
 EtcdRegistry::~EtcdRegistry() {
@@ -143,19 +140,7 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
 
   auto id = nameToIndex(service_name);
 
-  // 乐观路径：如果缓存未被标记为脏，尝试无锁读取
-  if (!bucket_dirty_flags_[id].load(std::memory_order_acquire)) {
-    auto &keyServiceMap = all_service_map_cache_[id];
-    auto it = keyServiceMap.find(service_name);
-    if (it != keyServiceMap.end()) {
-      // 快速返回，无锁操作
-      return it->second;
-    }
-  }
-
-  // 慢路径：缓存脏或未命中，加锁处理
-  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
-
+  std::scoped_lock<AdaptiveSpinLock> lock(bucket_lock_[id]);
   auto &keyServiceMap = all_service_map_[id];
   std::vector<std::string> vec;
   if (keyServiceMap.count(service_name)) {
@@ -164,9 +149,6 @@ std::vector<string> EtcdRegistry::discoverService(const string &service_name) {
     vec = loadByKey(service_name);
   }
   keyServiceMap[service_name] = vec;
-  all_service_map_cache_[id] = keyServiceMap;
-	// 清除脏标志（在锁内设置，确保可见性）
-  bucket_dirty_flags_[id].store(false, std::memory_order_release);
   return vec;
 }
 
@@ -205,8 +187,13 @@ void EtcdRegistry::startWatcher() {
   watching_.store(true);
   DEBUGLOG("begin start watcher");
   // 在单独的线程中启动watcher，避免阻塞
+
   watcher_thread_ = std::make_unique<std::thread>([this]() {
     try {
+      // 为 watcher 创建独立的 client，在线程内部创建避免竞争
+      std::string addr = ip_ + ":" + std::to_string(port_);
+      watcher_client_ = std::make_unique<etcd::Client>(addr, username_, password_);
+
       // 监听/rocket/service/前缀下的所有变化
       std::string watch_prefix = "/rocket/service/";
 
@@ -216,7 +203,7 @@ void EtcdRegistry::startWatcher() {
 
       // 启动watcher
       watcher_ =
-          std::make_unique<etcd::Watcher>(*etcd_client_, watch_prefix, callback,
+          std::make_unique<etcd::Watcher>(*watcher_client_, watch_prefix, callback,
                                           true); // true表示监听前缀下的所有变化
 
       INFOLOG("Etcd watcher started for prefix: %s", watch_prefix.c_str());
@@ -290,9 +277,7 @@ void EtcdRegistry::removeServiceFromCache(const std::string &key) {
   // 计算bucket id
   auto id = nameToIndex(service_name);
 
-  std::scoped_lock<std::mutex> lock(bucket_mutex_[id]);
-  bucket_dirty_flags_[id].store(true, std::memory_order_release);
-
+  std::scoped_lock<AdaptiveSpinLock> lock(bucket_lock_[id]);
   auto &keyServiceMap = all_service_map_[id];
 
   if (keyServiceMap.find(service_name) != keyServiceMap.end()) {

@@ -3,12 +3,12 @@
 
 #include "etcd/Client.hpp"
 #include "singleton.h"
+#include "spinlock.h"
 #include <etcd/KeepAlive.hpp>
 #include <etcd/Watcher.hpp>
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <mutex>
 #include <thread>
 #include <atomic>
 
@@ -65,7 +65,7 @@ private:
   int port_;
   std::string username_;
   std::string password_;
-  std::unique_ptr<etcd::Client> etcd_client_;
+  std::unique_ptr<etcd::Client> etcd_client_;  // 用于服务注册和查询
   std::unordered_map<std::string, std::shared_ptr<etcd::KeepAlive>>
       keep_alives_;
 
@@ -76,13 +76,10 @@ private:
   const int bucket_size_ = 8;
   using service_map = std::unordered_map<std::string, std::vector<std::string>>;
   std::vector<service_map> all_service_map_;
-	std::vector<service_map> all_service_map_cache_;
-  std::vector<std::mutex> bucket_mutex_;
-
-	// 乐观锁
-  std::vector<std::atomic<bool>> bucket_dirty_flags_;
+  std::vector<AdaptiveSpinLock> bucket_lock_;
 
   // Watcher相关成员
+  std::unique_ptr<etcd::Client> watcher_client_;  // watcher 专用 client
   std::unique_ptr<etcd::Watcher> watcher_;
   std::atomic<bool> watching_;
   std::unique_ptr<std::thread> watcher_thread_;
