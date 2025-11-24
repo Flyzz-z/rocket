@@ -104,9 +104,10 @@ void Logger::init() {
 void Logger::syncLoop() {
   // 同步 buffer_ 到 async_logger 的buffer队尾
   std::vector<std::string> tmp_vec;
-  std::unique_lock<std::mutex> lock(mutex_);
-  tmp_vec.swap(buffer_);
-  lock.unlock();
+  {
+    std::scoped_lock<std::mutex> lock(mutex_);
+    tmp_vec.swap(buffer_);
+  }
 
   if (!tmp_vec.empty()) {
     asnyc_logger_->pushLogBuffer(tmp_vec);
@@ -117,7 +118,7 @@ void Logger::pollThreadLocalBuffer() {
 
   if (cache_is_changed_.load()) {
     // 重新构建缓存
-    std::lock_guard<std::mutex> lock(register_threads_mutex_);
+    std::scoped_lock<std::mutex> lock(register_threads_mutex_);
     register_threads_cache_ = register_threads_;
     cache_is_changed_.store(false);
   }
@@ -126,48 +127,53 @@ void Logger::pollThreadLocalBuffer() {
   std::vector<std::string> batch_logs;
   batch_logs.reserve(512); // 预分配空间
 
-  // 轮询线程本地缓冲区，批量获取数据
+  // 轮询线程本地缓冲区，批量获取数据，获取cache副本
+
+  bool have_thread_done = false;
   for (auto it = register_threads_cache_.begin();
        it != register_threads_cache_.end();) {
     auto t_buffer = it->second;
-    if (t_buffer->is_over) {
-      // 删除，cache也删除
-      register_threads_.erase(it->first);
-      it = register_threads_cache_.erase(it);
-      continue;
-    }
-
-    // 批量获取每个线程本地缓冲区的数据（无需持有Logger的mutex_）
-    if (t_buffer->is_flushing.load(std::memory_order_acquire)) {
-      ++it;
-      continue;
-    }
-    t_buffer->is_flushing.store(true, std::memory_order_release);
 
     std::vector<std::string> tmp_vec;
     {
-      std::lock_guard<std::mutex> lock(t_buffer->buffer_mutex);
+      std::scoped_lock<std::mutex> lock(t_buffer->buffer_mutex);
       tmp_vec.swap(t_buffer->buffer);
     }
 
-    // 合并到批量日志中
-    batch_logs.insert(batch_logs.end(), tmp_vec.begin(), tmp_vec.end());
-    t_buffer->is_flushing.store(false, std::memory_order_release);
+    // 存在缓冲区对应线程已结束的情况
+    if (t_buffer->is_done.load(std::memory_order_acquire)) {
+      have_thread_done = true;
+    }
 
+    // 合并到批量日志中
+    batch_logs.insert(batch_logs.end(), std::make_move_iterator(tmp_vec.begin()), std::make_move_iterator(tmp_vec.end()));
     ++it;
   }
 
   // 一次性批量写入Logger的buffer_（只获取一次锁）
   if (!batch_logs.empty()) {
     std::lock_guard<std::mutex> lock(mutex_);
-    buffer_.insert(buffer_.end(), batch_logs.begin(), batch_logs.end());
+    buffer_.insert(buffer_.end(), std::make_move_iterator(batch_logs.begin()),std::make_move_iterator(batch_logs.end()));
+  }
+
+  // 如果存在线程已结束，需要清理
+  if (have_thread_done) {
+    std::lock_guard<std::mutex> lock(register_threads_mutex_);
+    for (auto it = register_threads_.begin(); it != register_threads_.end();) {
+      if (it->second->is_done.load(std::memory_order_acquire)) {
+        it = register_threads_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    cache_is_changed_.store(true);
   }
 }
 
 void Logger::timerLoop() {
   while (!timer_stop_flag_.load()) {
-    // 休眠 100ms
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // 休眠 200ms
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     // 轮询所有线程本地缓冲区
     pollThreadLocalBuffer();
@@ -219,15 +225,9 @@ void Logger::pushLog(const std::string &msg) {
     return;
   }
 
-  // 写入线程本地缓冲区（无锁操作）
+  // 写入线程本地缓冲区
   auto t_buffer_guard = ThreadLocalLogBufferGuard::getGuard();
-
-  t_buffer_guard->push(msg);
-
-  // 达到阈值时自动刷新
-  if (t_buffer_guard->shouldFlush()) {
-    t_buffer_guard->forceFlush();
-  }
+  t_buffer_guard->buffer_->push(msg);
 }
 
 void Logger::flushThreadLocalBuffer(
@@ -245,12 +245,12 @@ void Logger::registerThreadLocalBuffer(
     pid_t tid, std::shared_ptr<ThreadLocalLogBuffer> buffer) {
   std::lock_guard<std::mutex> lock(register_threads_mutex_);
   register_threads_[tid] = buffer;
-  cache_is_changed_.store(true);
+  cache_is_changed_.store(true,std::memory_order_release);
 }
 
 void Logger::unregisterThreadLocalBuffer(pid_t tid) {
   std::lock_guard<std::mutex> lock(register_threads_mutex_);
   register_threads_.erase(tid);
-  cache_is_changed_.store(true);
+  cache_is_changed_.store(true,std::memory_order_release);
 }
 } // namespace rocket

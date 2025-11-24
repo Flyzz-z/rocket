@@ -15,16 +15,12 @@ class Logger;
 // 线程本地日志缓冲区，使用 RAII 保证线程退出时自动刷新
 struct ThreadLocalLogBuffer {
   std::vector<std::string> buffer;      // 日志缓冲区
-  std::atomic<bool> is_flushing{false};
-	std::atomic<bool> is_over{false};
+	std::atomic<bool> is_done{false};
 	std::mutex buffer_mutex;
-  size_t flush_threshold = 100;         // 阈值：攒够100条自动刷新
 
   ThreadLocalLogBuffer();
 
   ~ThreadLocalLogBuffer();
-
-  bool shouldFlush() const;
 
   void forceFlush();
 
@@ -39,12 +35,6 @@ struct ThreadLocalLogBuffer {
 struct ThreadLocalLogBufferGuard {
   ThreadLocalLogBufferGuard();
 	~ThreadLocalLogBufferGuard();
-
-  bool shouldFlush() const;
-
-  void forceFlush();
-
-  void push(const std::string& msg);
 
   static ThreadLocalLogBufferGuard* getGuard();
 

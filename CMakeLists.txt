@@ -22,7 +22,28 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # 编译选项
 # 添加 -fno-omit-frame-pointer 保留栈帧指针,使perf能正确回溯调用栈
 # 添加 -fno-inline 避免函数内联,使符号更清晰
-add_compile_options(-g -O0 -Wall -Wno-deprecated -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-inline)
+add_compile_options(-Wall -Wno-deprecated -Wno-unused-but-set-variable)
+
+# Debug模式编译选项
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Building in Debug mode with Sanitizers enabled")
+    add_compile_options(-g -O0 -fno-omit-frame-pointer -fno-inline)
+
+    # ThreadSanitizer: 检测数据竞争
+    add_compile_options(-fsanitize=thread)
+    add_link_options(-fsanitize=thread)
+
+    # AddressSanitizer: 检测内存泄漏、use-after-free等
+    # 注意: TSan和ASan不能同时使用，优先使用TSan检测并发问题
+    # 如需使用ASan，注释掉上面的TSan行，取消下面两行注释:
+    # add_compile_options(-fsanitize=address)
+    # add_link_options(-fsanitize=address)
+
+# Release模式编译选项
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Building in Release mode with optimizations enabled")
+    add_compile_options(-O3 -DNDEBUG)
+endif()
 
 # 包含目录
 include_directories(

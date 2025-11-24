@@ -120,7 +120,9 @@ class AsyncLogger {
 
 class Logger {
  public:
-  typedef std::shared_ptr<Logger> s_ptr;
+  using s_ptr = std::shared_ptr<Logger>;
+
+	using ThreadBufferMap = std::unordered_map<pid_t, std::shared_ptr<ThreadLocalLogBuffer>>;
 
   Logger(LogLevel level, int type = 1);
 
@@ -143,7 +145,7 @@ class Logger {
 	// buffer_内容同步至async_logger中
   void syncLoop();
 
-	// 轮询线程本地缓存日志
+	// 轮询线程本地缓存日志，仅在timer线程中运行
 	void pollThreadLocalBuffer();
 
 	// 定时处理线程循环函数
@@ -181,8 +183,8 @@ class Logger {
 	std::thread timer_thread_;
 	std::atomic<bool> timer_stop_flag_ {false};
 	std::mutex register_threads_mutex_;
-	std::unordered_map<pid_t, std::shared_ptr<ThreadLocalLogBuffer>> register_threads_;
-	std::unordered_map<pid_t, std::shared_ptr<ThreadLocalLogBuffer>> register_threads_cache_;
+	ThreadBufferMap register_threads_;
+	ThreadBufferMap register_threads_cache_;
 	std::atomic<bool> cache_is_changed_ {false};
 
   AsyncLogger::s_ptr asnyc_logger_;

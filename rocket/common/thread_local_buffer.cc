@@ -9,22 +9,12 @@ namespace rocket {
 ThreadLocalLogBuffer::ThreadLocalLogBuffer() { buffer.reserve(128); }
 
 ThreadLocalLogBuffer::~ThreadLocalLogBuffer() { 
-	is_over.store(true);
-	forceFlush();
-}
-
-bool ThreadLocalLogBuffer::shouldFlush() const {
-  return buffer.size() >= flush_threshold;
+	is_done.store(true,std::memory_order_release);
 }
 
 void ThreadLocalLogBuffer::forceFlush() {
   if (Logger::GetGlobalLogger() == nullptr)
     return;
-
-  if (is_flushing.load(std::memory_order_acquire)) {
-    return;
-  }
-  is_flushing.store(true, std::memory_order_release);
 
   std::vector<std::string> tmp_vec;
   {
@@ -32,12 +22,10 @@ void ThreadLocalLogBuffer::forceFlush() {
     tmp_vec.swap(buffer);
   }
   Logger::GetGlobalLogger()->flushThreadLocalBuffer(tmp_vec);
-
-  is_flushing.store(false, std::memory_order_release);
 }
 
 void ThreadLocalLogBuffer::push(const std::string &msg) {
-  std::lock_guard<std::mutex> lock(buffer_mutex);
+  std::scoped_lock<std::mutex> lock(buffer_mutex);
   buffer.push_back(msg);
 }
 
@@ -50,16 +38,6 @@ ThreadLocalLogBufferGuard::ThreadLocalLogBufferGuard()
 }
 
 ThreadLocalLogBufferGuard::~ThreadLocalLogBufferGuard() {
-}
-
-bool ThreadLocalLogBufferGuard::shouldFlush() const {
-  return buffer_->shouldFlush();
-}
-
-void ThreadLocalLogBufferGuard::forceFlush() { buffer_->forceFlush(); }
-
-void ThreadLocalLogBufferGuard::push(const std::string &msg) {
-  buffer_->push(msg);
 }
 
 ThreadLocalLogBufferGuard *ThreadLocalLogBufferGuard::getGuard() {
