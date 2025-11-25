@@ -30,14 +30,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-g -O0 -fno-omit-frame-pointer -fno-inline)
 
     # ThreadSanitizer: 检测数据竞争
-    add_compile_options(-fsanitize=thread)
-    add_link_options(-fsanitize=thread)
+    # add_compile_options(-fsanitize=thread)
+    # add_link_options(-fsanitize=thread)
 
     # AddressSanitizer: 检测内存泄漏、use-after-free等
     # 注意: TSan和ASan不能同时使用，优先使用TSan检测并发问题
     # 如需使用ASan，注释掉上面的TSan行，取消下面两行注释:
-    # add_compile_options(-fsanitize=address)
-    # add_link_options(-fsanitize=address)
+    add_compile_options(-fsanitize=address)
+    add_link_options(-fsanitize=address)
 
 # Release模式编译选项
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
