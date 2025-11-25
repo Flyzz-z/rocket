@@ -120,6 +120,7 @@ void Logger::pollThreadLocalBuffer() {
     // 重新构建缓存
     std::scoped_lock<std::mutex> lock(register_threads_mutex_);
     register_threads_cache_ = register_threads_;
+		// 设置为true要么在同一个函数中，要么在同一个锁中，故不存在ABA问题。
     cache_is_changed_.store(false);
   }
 
